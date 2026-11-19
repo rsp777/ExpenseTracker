@@ -4,9 +4,22 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+fun getGitOutput(vararg args: String): String {
+    return providers.exec {
+        commandLine("git", *args)
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim().ifEmpty { "dev" }
+}
+
 android {
     namespace = "com.tracker.expensetracker"
     compileSdk = 37
+
+    val baseVersionName = "1.0.0"
+    val branch = runCatching { getGitOutput("rev-parse", "--abbrev-ref", "HEAD") }.getOrDefault("dev")
+    val commitHash = runCatching { getGitOutput("rev-parse", "--short", "HEAD") }.getOrDefault("dev")
+    val isDevBranch = branch == "dev" || branch.startsWith("dev-") || branch.startsWith("feature/")
+    val computedVersionName = if (isDevBranch) "$baseVersionName-dev.$commitHash" else baseVersionName
 
     defaultConfig {
         applicationId = "com.tracker.expensetracker"
@@ -14,7 +27,12 @@ android {
         targetSdk = 37
 
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = computedVersionName
+
+        buildConfigField("String", "BASE_VERSION_NAME", "\"$baseVersionName\"")
+        buildConfigField("String", "GIT_BRANCH", "\"$branch\"")
+        buildConfigField("String", "GIT_COMMIT_HASH", "\"$commitHash\"")
+        buildConfigField("Boolean", "IS_DEV_BUILD", "$isDevBranch")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
