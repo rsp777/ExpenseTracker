@@ -42,11 +42,13 @@ This document establishes the architectural principles, coding conventions, Git 
   - `chore(release): bump version to X.Y.Z (versionCode N)` (Release milestone)
   - `ci: <description>` (GitHub Actions workflow adjustments)
   - `docs: <description>` (Documentation updates)
-- **Merge Protocol**:
+- **Merge & Push Protocol (Approval Gateway Rule)**:
   1. Commit and push changes to `dev`.
   2. Verify build and tests pass: `./gradlew testDebugUnitTest`.
-  3. Merge `dev` into `main` using non-fast-forward merge (`git merge dev --no-edit`).
-  4. Push both branches to `origin`.
+  3. **STRICT APPROVAL REQUIREMENT**: Merging `dev` into `main` and pushing to `main` is **STRICTLY PROHIBITED** without explicit approval from the user.
+  4. Once explicit user approval is granted:
+     - Merge `dev` into `main` using non-fast-forward merge (`git merge dev --no-edit`).
+     - Push `main` to `origin/main`.
 
 ---
 
