@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tracker.expensetracker.ui.ExpenseScreen
 import com.tracker.expensetracker.ui.ExpenseViewModel
 import com.tracker.expensetracker.ui.theme.ExpenseTrackerTheme
@@ -16,7 +18,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            ExpenseTrackerTheme {
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            ExpenseTrackerTheme(
+                customTheme = uiState.theme,
+                themeMode = uiState.themeMode
+            ) {
                 ExpenseScreen(viewModel = viewModel)
             }
         }

@@ -16,6 +16,10 @@ A high-performance, offline-first personal expense tracking application built fo
 
 ## Features
 - **Dashboard & Spending Summary**: Real-time spending overview, transaction count, and identification of the highest spending category.
+- **Custom Modernized Theme Engine**: Comprehensive appearance customization featuring:
+  - 6 Material 3 color palettes: **Material Dynamic** (Android 12+ wallpaper sync), **Emerald Mint**, **Sapphire Blue**, **Amethyst Violet**, **Sunset Copper**, and **Midnight Obsidian**.
+  - 3 Appearance Modes: **Auto (System)**, **Light Mode**, and **Dark Mode** with full tonal surface elevation and contrast.
+  - Persistent preference saving in SharedPreferences so your chosen theme and mode survive app restarts.
 - **Multi-Currency Selection**: Select your preferred currency (USD $, EUR €, GBP £, INR ₹, JPY ¥, CAD CA$, AUD AU$, CHF CHF, CNY ¥, BRL R$) with immediate localized formatting across all cards, sheets, and summaries.
 - **Custom Category Management**: Create and add custom categories with custom titles, an 8-color Material color palette, and 16 distinct category icons, persisted directly in Room database alongside default categories.
 - **Instant Filtering**: Filter expenses effortlessly by Today, This Week, This Month, or specific Categories (default and custom).

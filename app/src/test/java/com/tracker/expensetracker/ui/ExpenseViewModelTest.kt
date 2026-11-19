@@ -1,9 +1,11 @@
 package com.tracker.expensetracker.ui
 
 import com.tracker.expensetracker.domain.model.AppCurrency
+import com.tracker.expensetracker.domain.model.CustomAppTheme
 import com.tracker.expensetracker.domain.model.Expense
 import com.tracker.expensetracker.domain.model.ExpenseCategory
 import com.tracker.expensetracker.domain.model.ExpenseFilter
+import com.tracker.expensetracker.domain.model.ThemeMode
 import com.tracker.expensetracker.domain.repository.ExpenseRepository
 import com.tracker.expensetracker.domain.repository.UserPreferencesRepository
 import io.mockk.coEvery
@@ -43,9 +45,23 @@ class ExpenseViewModelTest {
 
     class FakeUserPreferencesRepository : UserPreferencesRepository {
         private val _currency = MutableStateFlow(AppCurrency.USD)
+        private val _theme = MutableStateFlow(CustomAppTheme.DYNAMIC)
+        private val _mode = MutableStateFlow(ThemeMode.SYSTEM)
+
         override val selectedCurrency: StateFlow<AppCurrency> = _currency.asStateFlow()
+        override val selectedTheme: StateFlow<CustomAppTheme> = _theme.asStateFlow()
+        override val themeMode: StateFlow<ThemeMode> = _mode.asStateFlow()
+
         override suspend fun setCurrency(currency: AppCurrency) {
             _currency.value = currency
+        }
+
+        override suspend fun setTheme(theme: CustomAppTheme) {
+            _theme.value = theme
+        }
+
+        override suspend fun setThemeMode(mode: ThemeMode) {
+            _mode.value = mode
         }
     }
 
@@ -234,5 +250,41 @@ class ExpenseViewModelTest {
 
         coVerify(exactly = 0) { repository.deleteCategory(any()) }
         assertEquals("Default categories cannot be deleted", viewModel.uiState.value.userMessage)
+    }
+
+    @Test
+    fun onSelectTheme_updatesThemeStateAndMessage() = runTest(testDispatcher) {
+        every { repository.getAllExpenses() } returns flowOf(emptyList())
+
+        viewModel = ExpenseViewModel(repository, preferencesRepository)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        assertEquals(CustomAppTheme.DYNAMIC, viewModel.uiState.value.theme)
+
+        viewModel.onSelectTheme(CustomAppTheme.AMETHYST_ROYAL)
+        advanceUntilIdle()
+
+        assertEquals(CustomAppTheme.AMETHYST_ROYAL, viewModel.uiState.value.theme)
+        assertEquals("Theme updated to Amethyst Violet", viewModel.uiState.value.userMessage)
+    }
+
+    @Test
+    fun onSelectThemeMode_updatesThemeModeAndMessage() = runTest(testDispatcher) {
+        every { repository.getAllExpenses() } returns flowOf(emptyList())
+
+        viewModel = ExpenseViewModel(repository, preferencesRepository)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        assertEquals(ThemeMode.SYSTEM, viewModel.uiState.value.themeMode)
+
+        viewModel.onSelectThemeMode(ThemeMode.DARK)
+        advanceUntilIdle()
+
+        assertEquals(ThemeMode.DARK, viewModel.uiState.value.themeMode)
+        assertEquals("Appearance mode: Dark Mode", viewModel.uiState.value.userMessage)
     }
 }

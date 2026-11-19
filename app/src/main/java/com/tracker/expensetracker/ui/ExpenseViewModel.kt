@@ -7,10 +7,12 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.tracker.expensetracker.ExpenseTrackerApplication
 import com.tracker.expensetracker.domain.model.AppCurrency
+import com.tracker.expensetracker.domain.model.CustomAppTheme
 import com.tracker.expensetracker.domain.model.Expense
 import com.tracker.expensetracker.domain.model.ExpenseCategory
 import com.tracker.expensetracker.domain.model.ExpenseFilter
 import com.tracker.expensetracker.domain.model.ExpenseSummary
+import com.tracker.expensetracker.domain.model.ThemeMode
 import com.tracker.expensetracker.domain.repository.ExpenseRepository
 import com.tracker.expensetracker.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,9 +30,21 @@ class ExpenseViewModel(
     private val repository: ExpenseRepository,
     private val preferencesRepository: UserPreferencesRepository = object : UserPreferencesRepository {
         private val _currency = MutableStateFlow(AppCurrency.USD)
+        private val _theme = MutableStateFlow(CustomAppTheme.DYNAMIC)
+        private val _mode = MutableStateFlow(ThemeMode.SYSTEM)
+
         override val selectedCurrency: StateFlow<AppCurrency> = _currency.asStateFlow()
+        override val selectedTheme: StateFlow<CustomAppTheme> = _theme.asStateFlow()
+        override val themeMode: StateFlow<ThemeMode> = _mode.asStateFlow()
+
         override suspend fun setCurrency(currency: AppCurrency) {
             _currency.value = currency
+        }
+        override suspend fun setTheme(theme: CustomAppTheme) {
+            _theme.value = theme
+        }
+        override suspend fun setThemeMode(mode: ThemeMode) {
+            _mode.value = mode
         }
     }
 ) : ViewModel() {
@@ -40,6 +54,7 @@ class ExpenseViewModel(
     private val _sheetState = MutableStateFlow<Pair<Boolean, Expense?>>(Pair(false, null))
     private val _isCurrencyDialogVisible = MutableStateFlow(false)
     private val _isAddCategoryDialogVisible = MutableStateFlow(false)
+    private val _isThemeDialogVisible = MutableStateFlow(false)
     private val _userMessage = MutableStateFlow<String?>(null)
 
     private val dataFlow = combine(
@@ -48,6 +63,13 @@ class ExpenseViewModel(
         preferencesRepository.selectedCurrency
     ) { expenses, categories, currency ->
         Triple(expenses, categories, currency)
+    }
+
+    private val themeFlow = combine(
+        preferencesRepository.selectedTheme,
+        preferencesRepository.themeMode
+    ) { theme, mode ->
+        Pair(theme, mode)
     }
 
     private val filterFlow = combine(
@@ -60,23 +82,27 @@ class ExpenseViewModel(
     private val dialogsFlow = combine(
         _sheetState,
         _isCurrencyDialogVisible,
-        _isAddCategoryDialogVisible
-    ) { sheetState, currencyVisible, addCatVisible ->
+        _isAddCategoryDialogVisible,
+        _isThemeDialogVisible
+    ) { sheetState, currencyVisible, addCatVisible, themeVisible ->
         DialogsState(
             isAddEditSheetOpen = sheetState.first,
             editingExpense = sheetState.second,
             isCurrencyDialogVisible = currencyVisible,
-            isAddCategoryDialogVisible = addCatVisible
+            isAddCategoryDialogVisible = addCatVisible,
+            isThemeDialogVisible = themeVisible
         )
     }
 
     val uiState: StateFlow<ExpenseUiState> = combine(
         dataFlow,
+        themeFlow,
         filterFlow,
         dialogsFlow,
         _userMessage
-    ) { data, filters, dialogs, message ->
+    ) { data, themePair, filters, dialogs, message ->
         val (allExpenses, categories, currency) = data
+        val (theme, mode) = themePair
         val (filter, category) = filters
         val filteredExpenses = applyFilter(allExpenses, filter, category)
         val summary = calculateSummary(filteredExpenses)
@@ -87,9 +113,12 @@ class ExpenseViewModel(
             selectedCategory = category,
             categories = categories,
             currency = currency,
+            theme = theme,
+            themeMode = mode,
             isAddEditSheetOpen = dialogs.isAddEditSheetOpen,
             isCurrencyDialogVisible = dialogs.isCurrencyDialogVisible,
             isAddCategoryDialogVisible = dialogs.isAddCategoryDialogVisible,
+            isThemeDialogVisible = dialogs.isThemeDialogVisible,
             editingExpense = dialogs.editingExpense,
             userMessage = message
         )
@@ -129,6 +158,28 @@ class ExpenseViewModel(
             preferencesRepository.setCurrency(currency)
             _isCurrencyDialogVisible.value = false
             _userMessage.value = "Currency set to ${currency.code} (${currency.symbol})"
+        }
+    }
+
+    fun onOpenThemeDialog() {
+        _isThemeDialogVisible.value = true
+    }
+
+    fun onDismissThemeDialog() {
+        _isThemeDialogVisible.value = false
+    }
+
+    fun onSelectTheme(theme: CustomAppTheme) {
+        viewModelScope.launch {
+            preferencesRepository.setTheme(theme)
+            _userMessage.value = "Theme updated to ${theme.displayName}"
+        }
+    }
+
+    fun onSelectThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            preferencesRepository.setThemeMode(mode)
+            _userMessage.value = "Appearance mode: ${mode.displayName}"
         }
     }
 
@@ -261,7 +312,8 @@ class ExpenseViewModel(
         val isAddEditSheetOpen: Boolean = false,
         val editingExpense: Expense? = null,
         val isCurrencyDialogVisible: Boolean = false,
-        val isAddCategoryDialogVisible: Boolean = false
+        val isAddCategoryDialogVisible: Boolean = false,
+        val isThemeDialogVisible: Boolean = false
     )
 
     companion object {

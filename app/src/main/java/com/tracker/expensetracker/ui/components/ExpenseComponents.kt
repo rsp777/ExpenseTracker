@@ -29,10 +29,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tracker.expensetracker.BuildConfig
 import com.tracker.expensetracker.domain.model.AppCurrency
+import com.tracker.expensetracker.domain.model.CustomAppTheme
 import com.tracker.expensetracker.domain.model.Expense
 import com.tracker.expensetracker.domain.model.ExpenseCategory
 import com.tracker.expensetracker.domain.model.ExpenseFilter
 import com.tracker.expensetracker.domain.model.ExpenseSummary
+import com.tracker.expensetracker.domain.model.ThemeMode
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -820,6 +822,140 @@ fun AddCategoryDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun ThemeSelectionDialog(
+    currentTheme: CustomAppTheme,
+    currentMode: ThemeMode,
+    onThemeSelected: (CustomAppTheme) -> Unit,
+    onModeSelected: (ThemeMode) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "App Theme & Appearance",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Appearance mode selection (System, Light, Dark)
+                Text(
+                    text = "Appearance Mode",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ThemeMode.entries.forEach { mode ->
+                        val isSelected = currentMode == mode
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { onModeSelected(mode) },
+                            label = { Text(mode.displayName) },
+                            shape = RoundedCornerShape(100.dp),
+                            modifier = Modifier.weight(1f),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // Color Themes
+                Text(
+                    text = "Color Palette",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(CustomAppTheme.entries) { theme ->
+                        val isSelected = currentTheme == theme
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable { onThemeSelected(theme) },
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent,
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(theme.previewColorHex)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(14.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = theme.displayName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (theme == CustomAppTheme.DYNAMIC) {
+                                        Text(
+                                            text = "Syncs with Android 12+ wallpaper colors",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = { onThemeSelected(theme) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
             }
         }
     )

@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -88,6 +89,13 @@ fun ExpenseScreen(
                             text = "${uiState.currency.symbol} ${uiState.currency.code}",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
+                        )
+                    }
+                    IconButton(onClick = { viewModel.onOpenThemeDialog() }) {
+                        Icon(
+                            imageVector = Icons.Default.Palette,
+                            contentDescription = "Theme & Appearance",
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                     IconButton(onClick = { viewModel.onOpenAddCategory() }) {
@@ -286,6 +294,16 @@ fun ExpenseScreen(
                     viewModel.onAddCategory(name, colorHex, iconName)
                 },
                 onDismiss = { viewModel.onDismissAddCategory() }
+            )
+        }
+
+        if (uiState.isThemeDialogVisible) {
+            ThemeSelectionDialog(
+                currentTheme = uiState.theme,
+                currentMode = uiState.themeMode,
+                onThemeSelected = { viewModel.onSelectTheme(it) },
+                onModeSelected = { viewModel.onSelectThemeMode(it) },
+                onDismiss = { viewModel.onDismissThemeDialog() }
             )
         }
     }
