@@ -5,18 +5,50 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.tracker.expensetracker.data.local.converter.Converters
+import com.tracker.expensetracker.data.local.dao.CategoryDao
 import com.tracker.expensetracker.data.local.dao.ExpenseDao
+import com.tracker.expensetracker.data.local.entity.CategoryEntity
 import com.tracker.expensetracker.data.local.entity.ExpenseEntity
+import com.tracker.expensetracker.domain.model.ExpenseCategory
 
-@Database(entities = [ExpenseEntity::class], version = 1, exportSchema = false)
+@Database(
+    entities = [ExpenseEntity::class, CategoryEntity::class],
+    version = 2,
+    exportSchema = false
+)
 @TypeConverters(Converters::class)
 abstract class ExpenseDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
+    abstract fun categoryDao(): CategoryDao
 
     companion object {
         @Volatile
         private var INSTANCE: ExpenseDatabase? = null
+
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `categories` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `displayName` TEXT NOT NULL,
+                        `colorHex` INTEGER NOT NULL,
+                        `iconName` TEXT NOT NULL,
+                        `isDefault` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                for (cat in ExpenseCategory.DEFAULT_CATEGORIES) {
+                    db.execSQL(
+                        "INSERT OR IGNORE INTO `categories` (`id`, `displayName`, `colorHex`, `iconName`, `isDefault`) VALUES (?, ?, ?, ?, ?)",
+                        arrayOf<Any>(cat.id, cat.displayName, cat.colorHex, cat.iconName, if (cat.isDefault) 1 else 0)
+                    )
+                }
+            }
+        }
 
         fun getInstance(context: Context): ExpenseDatabase {
             return INSTANCE ?: synchronized(this) {
@@ -24,7 +56,21 @@ abstract class ExpenseDatabase : RoomDatabase() {
                     context.applicationContext,
                     ExpenseDatabase::class.java,
                     "expense_tracker.db"
-                ).fallbackToDestructiveMigration().build()
+                )
+                    .addMigrations(MIGRATION_1_2)
+                    .addCallback(object : Callback() {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            super.onCreate(db)
+                            for (cat in ExpenseCategory.DEFAULT_CATEGORIES) {
+                                db.execSQL(
+                                    "INSERT OR IGNORE INTO `categories` (`id`, `displayName`, `colorHex`, `iconName`, `isDefault`) VALUES (?, ?, ?, ?, ?)",
+                                    arrayOf<Any>(cat.id, cat.displayName, cat.colorHex, cat.iconName, if (cat.isDefault) 1 else 0)
+                                )
+                            }
+                        }
+                    })
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }

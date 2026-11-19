@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,6 +51,25 @@ fun ExpenseScreen(
                         )
                     }
                 },
+                actions = {
+                    FilledTonalButton(
+                        onClick = { viewModel.onOpenCurrencyDialog() },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Text(
+                            text = "${uiState.currency.symbol} ${uiState.currency.code}",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    IconButton(onClick = { viewModel.onOpenAddCategory() }) {
+                        Icon(
+                            imageVector = Icons.Default.AddCircleOutline,
+                            contentDescription = "Add Category"
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 )
@@ -78,16 +98,21 @@ fun ExpenseScreen(
             contentPadding = PaddingValues(bottom = 88.dp)
         ) {
             item {
-                SummaryCard(summary = uiState.summary)
+                SummaryCard(
+                    summary = uiState.summary,
+                    currency = uiState.currency
+                )
             }
 
             item {
                 FilterChipRow(
                     currentFilter = uiState.filter,
                     selectedCategory = uiState.selectedCategory,
+                    categories = uiState.categories,
                     onFilterSelected = { filter, category ->
                         viewModel.onFilterSelected(filter, category)
-                    }
+                    },
+                    onOpenAddCategory = { viewModel.onOpenAddCategory() }
                 )
             }
 
@@ -147,6 +172,7 @@ fun ExpenseScreen(
                 ) { expense ->
                     ExpenseItemCard(
                         expense = expense,
+                        currency = uiState.currency,
                         onClick = { viewModel.onOpenEditExpense(expense) },
                         onDelete = { viewModel.onDeleteExpense(expense) }
                     )
@@ -157,10 +183,30 @@ fun ExpenseScreen(
         if (uiState.isAddEditSheetOpen) {
             AddEditExpenseSheet(
                 expenseToEdit = uiState.editingExpense,
+                categories = uiState.categories,
+                currency = uiState.currency,
                 onDismiss = { viewModel.onDismissSheet() },
+                onOpenAddCategory = { viewModel.onOpenAddCategory() },
                 onSave = { title, amount, category, date, notes ->
                     viewModel.onSaveExpense(title, amount, category, date, notes)
                 }
+            )
+        }
+
+        if (uiState.isCurrencyDialogVisible) {
+            CurrencySelectionDialog(
+                currentCurrency = uiState.currency,
+                onCurrencySelected = { viewModel.onSelectCurrency(it) },
+                onDismiss = { viewModel.onDismissCurrencyDialog() }
+            )
+        }
+
+        if (uiState.isAddCategoryDialogVisible) {
+            AddCategoryDialog(
+                onAddCategory = { name, colorHex, iconName ->
+                    viewModel.onAddCategory(name, colorHex, iconName)
+                },
+                onDismiss = { viewModel.onDismissAddCategory() }
             )
         }
     }

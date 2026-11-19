@@ -1,6 +1,8 @@
 package com.tracker.expensetracker.data.repository
 
+import com.tracker.expensetracker.data.local.dao.CategoryDao
 import com.tracker.expensetracker.data.local.dao.ExpenseDao
+import com.tracker.expensetracker.data.local.entity.CategoryEntity
 import com.tracker.expensetracker.data.local.entity.ExpenseEntity
 import com.tracker.expensetracker.domain.model.Expense
 import com.tracker.expensetracker.domain.model.ExpenseCategory
@@ -20,12 +22,13 @@ import java.time.LocalDate
 class ExpenseRepositoryImplTest {
 
     private val expenseDao: ExpenseDao = mockk(relaxed = true)
+    private val categoryDao: CategoryDao = mockk(relaxed = true)
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var repository: ExpenseRepositoryImpl
 
     @Before
     fun setUp() {
-        repository = ExpenseRepositoryImpl(expenseDao, testDispatcher)
+        repository = ExpenseRepositoryImpl(expenseDao, categoryDao, testDispatcher)
     }
 
     @Test
@@ -64,5 +67,38 @@ class ExpenseRepositoryImplTest {
         repository.deleteExpense(expense)
 
         coVerify { expenseDao.deleteExpense(match { it.id == 99L }) }
+    }
+
+    @Test
+    fun getAllCategories_returnsDefaultWhenDaoEmpty() = runTest(testDispatcher) {
+        every { categoryDao.getAllCategories() } returns flowOf(emptyList())
+
+        val result = repository.getAllCategories().first()
+
+        assertEquals(ExpenseCategory.DEFAULT_CATEGORIES.size, result.size)
+    }
+
+    @Test
+    fun getAllCategories_mapsCustomCategories() = runTest(testDispatcher) {
+        val customEntities = listOf(
+            CategoryEntity(id = "FITNESS", displayName = "Fitness", colorHex = 0xFF4CAF50, iconName = "FitnessCenter")
+        )
+        every { categoryDao.getAllCategories() } returns flowOf(customEntities)
+
+        val result = repository.getAllCategories().first()
+
+        assertEquals(1, result.size)
+        assertEquals("Fitness", result[0].displayName)
+        assertEquals(0xFF4CAF50, result[0].colorHex)
+    }
+
+    @Test
+    fun insertCategory_delegatesToDao() = runTest(testDispatcher) {
+        val category = ExpenseCategory(id = "PETS", displayName = "Pets", colorHex = 0xFFFF9800, iconName = "Pets")
+        coEvery { categoryDao.insertCategory(any()) } returns Unit
+
+        repository.insertCategory(category)
+
+        coVerify { categoryDao.insertCategory(match { it.id == "PETS" && it.displayName == "Pets" }) }
     }
 }

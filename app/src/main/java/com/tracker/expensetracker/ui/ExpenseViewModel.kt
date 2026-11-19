@@ -6,38 +6,78 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.tracker.expensetracker.ExpenseTrackerApplication
+import com.tracker.expensetracker.domain.model.AppCurrency
 import com.tracker.expensetracker.domain.model.Expense
 import com.tracker.expensetracker.domain.model.ExpenseCategory
 import com.tracker.expensetracker.domain.model.ExpenseFilter
 import com.tracker.expensetracker.domain.model.ExpenseSummary
 import com.tracker.expensetracker.domain.repository.ExpenseRepository
+import com.tracker.expensetracker.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
 
 class ExpenseViewModel(
-    private val repository: ExpenseRepository
+    private val repository: ExpenseRepository,
+    private val preferencesRepository: UserPreferencesRepository = object : UserPreferencesRepository {
+        private val _currency = MutableStateFlow(AppCurrency.USD)
+        override val selectedCurrency: StateFlow<AppCurrency> = _currency.asStateFlow()
+        override suspend fun setCurrency(currency: AppCurrency) {
+            _currency.value = currency
+        }
+    }
 ) : ViewModel() {
 
     private val _filter = MutableStateFlow(ExpenseFilter.ALL)
     private val _selectedCategory = MutableStateFlow<ExpenseCategory?>(null)
     private val _sheetState = MutableStateFlow<Pair<Boolean, Expense?>>(Pair(false, null))
+    private val _isCurrencyDialogVisible = MutableStateFlow(false)
+    private val _isAddCategoryDialogVisible = MutableStateFlow(false)
     private val _userMessage = MutableStateFlow<String?>(null)
 
-    val uiState: StateFlow<ExpenseUiState> = combine(
+    private val dataFlow = combine(
         repository.getAllExpenses(),
+        repository.getAllCategories(),
+        preferencesRepository.selectedCurrency
+    ) { expenses, categories, currency ->
+        Triple(expenses, categories, currency)
+    }
+
+    private val filterFlow = combine(
         _filter,
-        _selectedCategory,
+        _selectedCategory
+    ) { filter, category ->
+        Pair(filter, category)
+    }
+
+    private val dialogsFlow = combine(
         _sheetState,
+        _isCurrencyDialogVisible,
+        _isAddCategoryDialogVisible
+    ) { sheetState, currencyVisible, addCatVisible ->
+        DialogsState(
+            isAddEditSheetOpen = sheetState.first,
+            editingExpense = sheetState.second,
+            isCurrencyDialogVisible = currencyVisible,
+            isAddCategoryDialogVisible = addCatVisible
+        )
+    }
+
+    val uiState: StateFlow<ExpenseUiState> = combine(
+        dataFlow,
+        filterFlow,
+        dialogsFlow,
         _userMessage
-    ) { allExpenses, filter, category, sheetState, message ->
+    ) { data, filters, dialogs, message ->
+        val (allExpenses, categories, currency) = data
+        val (filter, category) = filters
         val filteredExpenses = applyFilter(allExpenses, filter, category)
         val summary = calculateSummary(filteredExpenses)
         ExpenseUiState(
@@ -45,8 +85,12 @@ class ExpenseViewModel(
             summary = summary,
             filter = filter,
             selectedCategory = category,
-            isAddEditSheetOpen = sheetState.first,
-            editingExpense = sheetState.second,
+            categories = categories,
+            currency = currency,
+            isAddEditSheetOpen = dialogs.isAddEditSheetOpen,
+            isCurrencyDialogVisible = dialogs.isCurrencyDialogVisible,
+            isAddCategoryDialogVisible = dialogs.isAddCategoryDialogVisible,
+            editingExpense = dialogs.editingExpense,
             userMessage = message
         )
     }.stateIn(
@@ -70,6 +114,62 @@ class ExpenseViewModel(
 
     fun onDismissSheet() {
         _sheetState.value = Pair(false, null)
+    }
+
+    fun onOpenCurrencyDialog() {
+        _isCurrencyDialogVisible.value = true
+    }
+
+    fun onDismissCurrencyDialog() {
+        _isCurrencyDialogVisible.value = false
+    }
+
+    fun onSelectCurrency(currency: AppCurrency) {
+        viewModelScope.launch {
+            preferencesRepository.setCurrency(currency)
+            _isCurrencyDialogVisible.value = false
+            _userMessage.value = "Currency set to ${currency.code} (${currency.symbol})"
+        }
+    }
+
+    fun onOpenAddCategory() {
+        _isAddCategoryDialogVisible.value = true
+    }
+
+    fun onDismissAddCategory() {
+        _isAddCategoryDialogVisible.value = false
+    }
+
+    fun onAddCategory(name: String, colorHex: Long, iconName: String) {
+        val trimmedName = name.trim()
+        if (trimmedName.isBlank()) {
+            _userMessage.value = "Category name cannot be empty"
+            return
+        }
+        viewModelScope.launch {
+            val slug = trimmedName.uppercase().replace(" ", "_")
+            val newCategory = ExpenseCategory(
+                id = slug,
+                displayName = trimmedName,
+                colorHex = colorHex,
+                iconName = iconName,
+                isDefault = false
+            )
+            repository.insertCategory(newCategory)
+            _isAddCategoryDialogVisible.value = false
+            _userMessage.value = "Category '$trimmedName' created successfully"
+        }
+    }
+
+    fun onDeleteCategory(category: ExpenseCategory) {
+        if (category.isDefault) {
+            _userMessage.value = "Default categories cannot be deleted"
+            return
+        }
+        viewModelScope.launch {
+            repository.deleteCategory(category)
+            _userMessage.value = "Category '${category.displayName}' deleted"
+        }
     }
 
     fun onSaveExpense(
@@ -157,11 +257,21 @@ class ExpenseViewModel(
         )
     }
 
+    private data class DialogsState(
+        val isAddEditSheetOpen: Boolean = false,
+        val editingExpense: Expense? = null,
+        val isCurrencyDialogVisible: Boolean = false,
+        val isAddCategoryDialogVisible: Boolean = false
+    )
+
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val application = (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as ExpenseTrackerApplication)
-                ExpenseViewModel(application.container.expenseRepository)
+                ExpenseViewModel(
+                    repository = application.container.expenseRepository,
+                    preferencesRepository = application.container.userPreferencesRepository
+                )
             }
         }
     }

@@ -1,6 +1,8 @@
 package com.tracker.expensetracker.data.repository
 
+import com.tracker.expensetracker.data.local.dao.CategoryDao
 import com.tracker.expensetracker.data.local.dao.ExpenseDao
+import com.tracker.expensetracker.data.local.entity.CategoryEntity
 import com.tracker.expensetracker.data.local.entity.ExpenseEntity
 import com.tracker.expensetracker.domain.model.Expense
 import com.tracker.expensetracker.domain.model.ExpenseCategory
@@ -15,6 +17,7 @@ import java.time.LocalDate
 
 class ExpenseRepositoryImpl(
     private val expenseDao: ExpenseDao,
+    private val categoryDao: CategoryDao,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ExpenseRepository {
 
@@ -54,5 +57,25 @@ class ExpenseRepositoryImpl(
 
     override suspend fun deleteExpenseById(id: Long) = withContext(ioDispatcher) {
         expenseDao.deleteExpenseById(id)
+    }
+
+    override fun getAllCategories(): Flow<List<ExpenseCategory>> {
+        return categoryDao.getAllCategories()
+            .map { entities ->
+                if (entities.isEmpty()) {
+                    ExpenseCategory.DEFAULT_CATEGORIES
+                } else {
+                    entities.map { it.toDomainModel() }
+                }
+            }
+            .flowOn(ioDispatcher)
+    }
+
+    override suspend fun insertCategory(category: ExpenseCategory) = withContext(ioDispatcher) {
+        categoryDao.insertCategory(CategoryEntity.fromDomainModel(category))
+    }
+
+    override suspend fun deleteCategory(category: ExpenseCategory) = withContext(ioDispatcher) {
+        categoryDao.deleteCategory(CategoryEntity.fromDomainModel(category))
     }
 }

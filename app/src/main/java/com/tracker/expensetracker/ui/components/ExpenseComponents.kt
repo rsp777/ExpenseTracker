@@ -1,10 +1,11 @@
 package com.tracker.expensetracker.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -24,36 +25,73 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tracker.expensetracker.domain.model.AppCurrency
 import com.tracker.expensetracker.domain.model.Expense
 import com.tracker.expensetracker.domain.model.ExpenseCategory
 import com.tracker.expensetracker.domain.model.ExpenseFilter
 import com.tracker.expensetracker.domain.model.ExpenseSummary
-import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 fun ExpenseCategory.getIcon(): ImageVector {
-    return when (this) {
-        ExpenseCategory.FOOD -> Icons.Default.Restaurant
-        ExpenseCategory.TRANSPORT -> Icons.Default.DirectionsCar
-        ExpenseCategory.SHOPPING -> Icons.Default.ShoppingCart
-        ExpenseCategory.BILLS -> Icons.Default.Receipt
-        ExpenseCategory.ENTERTAINMENT -> Icons.Default.Movie
-        ExpenseCategory.HEALTH -> Icons.Default.FitnessCenter
-        ExpenseCategory.EDUCATION -> Icons.Default.School
-        ExpenseCategory.OTHER -> Icons.Default.Category
+    return when (iconName.lowercase()) {
+        "restaurant", "food" -> Icons.Default.Restaurant
+        "directionscar", "directions_car", "transport" -> Icons.Default.DirectionsCar
+        "shoppingcart", "shopping_cart", "shopping" -> Icons.Default.ShoppingCart
+        "receipt", "bills" -> Icons.Default.Receipt
+        "movie", "entertainment" -> Icons.Default.Movie
+        "fitnesscenter", "fitness_center", "health", "fitness" -> Icons.Default.FitnessCenter
+        "school", "education" -> Icons.Default.School
+        "work", "business" -> Icons.Default.Work
+        "flight", "travel" -> Icons.Default.Flight
+        "home", "housing" -> Icons.Default.Home
+        "pets", "pet" -> Icons.Default.Pets
+        "savings", "investment" -> Icons.Default.Savings
+        "star", "favorite" -> Icons.Default.Star
+        "localcafe", "local_cafe", "cafe", "coffee" -> Icons.Default.LocalCafe
+        "medicalservices", "medical_services", "medical" -> Icons.Default.MedicalServices
+        else -> Icons.Default.Category
     }
 }
 
-fun formatCurrency(amount: Double): String {
-    val format = NumberFormat.getCurrencyInstance(Locale.US)
-    return format.format(amount)
-}
+val AVAILABLE_CATEGORY_ICONS: List<Pair<String, ImageVector>> = listOf(
+    "Category" to Icons.Default.Category,
+    "Restaurant" to Icons.Default.Restaurant,
+    "DirectionsCar" to Icons.Default.DirectionsCar,
+    "ShoppingCart" to Icons.Default.ShoppingCart,
+    "Receipt" to Icons.Default.Receipt,
+    "Movie" to Icons.Default.Movie,
+    "FitnessCenter" to Icons.Default.FitnessCenter,
+    "School" to Icons.Default.School,
+    "Work" to Icons.Default.Work,
+    "Flight" to Icons.Default.Flight,
+    "Home" to Icons.Default.Home,
+    "Pets" to Icons.Default.Pets,
+    "Savings" to Icons.Default.Savings,
+    "Star" to Icons.Default.Star,
+    "LocalCafe" to Icons.Default.LocalCafe,
+    "MedicalServices" to Icons.Default.MedicalServices
+)
+
+val CATEGORY_PALETTE_COLORS: List<Long> = listOf(
+    0xFFFF7043, // Coral
+    0xFF42A5F5, // Blue
+    0xFFAB47BC, // Purple
+    0xFFEF5350, // Red
+    0xFFFFCA28, // Amber
+    0xFF26A69A, // Teal
+    0xFF7E57C2, // Deep Purple
+    0xFF4CAF50, // Green
+    0xFFE91E63, // Pink
+    0xFF3F51B5, // Indigo
+    0xFFFF9800, // Orange
+    0xFF78909C  // Blue Grey
+)
 
 @Composable
 fun SummaryCard(
     summary: ExpenseSummary,
+    currency: AppCurrency,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -76,7 +114,7 @@ fun SummaryCard(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = formatCurrency(summary.totalSpent),
+                text = currency.format(summary.totalSpent),
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 34.sp
@@ -117,16 +155,19 @@ fun SummaryCard(
 fun FilterChipRow(
     currentFilter: ExpenseFilter,
     selectedCategory: ExpenseCategory?,
+    categories: List<ExpenseCategory>,
     onFilterSelected: (ExpenseFilter, ExpenseCategory?) -> Unit,
+    onOpenAddCategory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        ExpenseFilter.values().filter { it != ExpenseFilter.BY_CATEGORY }.forEach { filter ->
+        ExpenseFilter.entries.filter { it != ExpenseFilter.BY_CATEGORY }.forEach { filter ->
             FilterChip(
                 selected = currentFilter == filter && selectedCategory == null,
                 onClick = { onFilterSelected(filter, null) },
@@ -134,8 +175,7 @@ fun FilterChipRow(
             )
         }
 
-        // Category filter chips
-        ExpenseCategory.values().forEach { cat ->
+        categories.forEach { cat ->
             FilterChip(
                 selected = currentFilter == ExpenseFilter.BY_CATEGORY && selectedCategory == cat,
                 onClick = { onFilterSelected(ExpenseFilter.BY_CATEGORY, cat) },
@@ -150,12 +190,25 @@ fun FilterChipRow(
                 }
             )
         }
+
+        SuggestionChip(
+            onClick = onOpenAddCategory,
+            label = { Text("+ Category") },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add Category",
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        )
     }
 }
 
 @Composable
 fun ExpenseItemCard(
     expense: Expense,
+    currency: AppCurrency,
     onClick: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
@@ -218,7 +271,7 @@ fun ExpenseItemCard(
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = formatCurrency(expense.amount),
+                    text = currency.format(expense.amount),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error
@@ -266,12 +319,17 @@ fun ExpenseItemCard(
 @Composable
 fun AddEditExpenseSheet(
     expenseToEdit: Expense?,
+    categories: List<ExpenseCategory>,
+    currency: AppCurrency,
     onDismiss: () -> Unit,
+    onOpenAddCategory: () -> Unit,
     onSave: (title: String, amount: Double, category: ExpenseCategory, date: LocalDate, notes: String) -> Unit
 ) {
     var title by remember { mutableStateOf(expenseToEdit?.title ?: "") }
     var amountText by remember { mutableStateOf(expenseToEdit?.amount?.toString() ?: "") }
-    var selectedCategory by remember { mutableStateOf(expenseToEdit?.category ?: ExpenseCategory.FOOD) }
+    var selectedCategory by remember {
+        mutableStateOf(expenseToEdit?.category ?: categories.firstOrNull() ?: ExpenseCategory.FOOD)
+    }
     var notes by remember { mutableStateOf(expenseToEdit?.notes ?: "") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -299,7 +357,7 @@ fun AddEditExpenseSheet(
                     amountText = it
                     errorMessage = null
                 },
-                label = { Text("Amount ($)") },
+                label = { Text("Amount (${currency.symbol})") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -320,18 +378,34 @@ fun AddEditExpenseSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                text = "Category",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Category",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                TextButton(onClick = onOpenAddCategory) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("New Category", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(ExpenseCategory.values()) { cat ->
+                items(categories) { cat ->
                     val isSelected = selectedCategory == cat
                     ElevatedFilterChip(
                         selected = isSelected,
@@ -402,4 +476,255 @@ fun AddEditExpenseSheet(
             }
         }
     }
+}
+
+@Composable
+fun CurrencySelectionDialog(
+    currentCurrency: AppCurrency,
+    onCurrencySelected: (AppCurrency) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Select Currency",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(AppCurrency.SUPPORTED_CURRENCIES) { currency ->
+                    val isSelected = currency.code == currentCurrency.code
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onCurrencySelected(currency) },
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = { onCurrencySelected(currency) }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = currency.symbol,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.width(42.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = currency.displayName,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
+
+@Composable
+fun AddCategoryDialog(
+    onAddCategory: (name: String, colorHex: Long, iconName: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var selectedColor by remember { mutableStateOf(CATEGORY_PALETTE_COLORS[0]) }
+    var selectedIconName by remember { mutableStateOf(AVAILABLE_CATEGORY_ICONS[0].first) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "New Expense Category",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 460.dp)
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        errorMessage = null
+                    },
+                    label = { Text("Category Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                errorMessage?.let {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Color Palette",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(CATEGORY_PALETTE_COLORS) { colorHex ->
+                        val isSelected = selectedColor == colorHex
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(colorHex))
+                                .clickable { selectedColor = colorHex }
+                                .then(
+                                    if (isSelected) {
+                                        Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                    } else Modifier
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Icon",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(AVAILABLE_CATEGORY_ICONS) { (iconName, iconVector) ->
+                        val isSelected = selectedIconName == iconName
+                        Surface(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { selectedIconName = iconName },
+                            color = if (isSelected) Color(selectedColor).copy(alpha = 0.25f) else MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(8.dp),
+                            border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, Color(selectedColor)) else null
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = iconVector,
+                                    contentDescription = iconName,
+                                    tint = if (isSelected) Color(selectedColor) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Preview",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                val previewCat = ExpenseCategory(
+                    id = "PREVIEW",
+                    displayName = name.ifBlank { "Category Name" },
+                    colorHex = selectedColor,
+                    iconName = selectedIconName
+                )
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(selectedColor).copy(alpha = 0.2f),
+                    modifier = Modifier.wrapContentSize()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = previewCat.getIcon(),
+                            contentDescription = null,
+                            tint = Color(selectedColor),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = previewCat.displayName,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(selectedColor)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isBlank()) {
+                        errorMessage = "Please enter a category name"
+                        return@Button
+                    }
+                    onAddCategory(name.trim(), selectedColor, selectedIconName)
+                }
+            ) {
+                Text("Create Category")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
