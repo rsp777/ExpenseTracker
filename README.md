@@ -5,6 +5,8 @@
 
 A high-performance, offline-first personal expense tracking application built following modern Android engineering standards, Jetpack Compose, Material 3, Clean Architecture with Unidirectional Data Flow (UDF), and automated CI/CD pipelines.
 
+The development build is based on `1.0.1` with Android version code `2`. It fixes category overwrites, category names with punctuation, invalid expense amounts, and duplicate saves.
+
 ## Architecture & Technology Stack
 - UI Framework: Modern Jetpack Compose with Material 3.
 - Pattern: Unidirectional Data Flow (UDF / MVI / MVVM) with deterministic StateFlow state exposure.

@@ -290,6 +290,8 @@ fun ExpenseScreen(
 
         if (uiState.isAddCategoryDialogVisible) {
             AddCategoryDialog(
+                errorMessage = uiState.addCategoryError,
+                onNameChanged = viewModel::onAddCategoryNameChanged,
                 onAddCategory = { name, colorHex, iconName ->
                     viewModel.onAddCategory(name, colorHex, iconName)
                 },

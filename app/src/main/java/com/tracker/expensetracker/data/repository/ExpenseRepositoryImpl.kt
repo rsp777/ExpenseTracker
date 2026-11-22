@@ -34,8 +34,9 @@ class ExpenseRepositoryImpl(
     }
 
     override fun getExpensesByCategory(category: ExpenseCategory): Flow<List<Expense>> {
-        return expenseDao.getExpensesByCategory(category)
-            .map { entities -> entities.map { it.toDomainModel() } }
+        // Stored categories can use different formats and have different display metadata.
+        return expenseDao.getAllExpenses()
+            .map { entities -> entities.filter { it.category == category }.map { it.toDomainModel() } }
             .flowOn(ioDispatcher)
     }
 
@@ -71,8 +72,8 @@ class ExpenseRepositoryImpl(
             .flowOn(ioDispatcher)
     }
 
-    override suspend fun insertCategory(category: ExpenseCategory) = withContext(ioDispatcher) {
-        categoryDao.insertCategory(CategoryEntity.fromDomainModel(category))
+    override suspend fun insertCategory(category: ExpenseCategory): Boolean = withContext(ioDispatcher) {
+        categoryDao.insertCategory(CategoryEntity.fromDomainModel(category)) != -1L
     }
 
     override suspend fun deleteCategory(category: ExpenseCategory) = withContext(ioDispatcher) {

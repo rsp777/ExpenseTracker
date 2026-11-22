@@ -20,6 +20,7 @@ data class ExpenseUiState(
     val isAddEditSheetOpen: Boolean = false,
     val isCurrencyDialogVisible: Boolean = false,
     val isAddCategoryDialogVisible: Boolean = false,
+    val addCategoryError: String? = null,
     val isThemeDialogVisible: Boolean = false,
     val editingExpense: Expense? = null,
     val userMessage: String? = null

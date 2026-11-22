@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.LocalDate
@@ -47,6 +49,24 @@ class ExpenseRepositoryImplTest {
         assertEquals(15.5, result[0].amount, 0.001)
         assertEquals(ExpenseCategory.FOOD, result[0].category)
         assertEquals("Bus", result[1].title)
+    }
+
+    @Test
+    fun getExpensesByCategory_matchesCategoryIdAcrossStoredSnapshots() = runTest(testDispatcher) {
+        val date = LocalDate.of(2026, 11, 22)
+        val savedCategory = ExpenseCategory("WORK:::TRAVEL", "Work:::Travel", 0xFF2E7D32, "Flight")
+        val currentCategory = savedCategory.copy(displayName = "Business travel", iconName = "DirectionsCar")
+        every { expenseDao.getAllExpenses() } returns flowOf(
+            listOf(
+                ExpenseEntity(id = 3L, title = "Lunch", amount = 15.0, category = ExpenseCategory.FOOD, date = date),
+                ExpenseEntity(id = 2L, title = "Flight", amount = 45.0, category = savedCategory, date = date),
+                ExpenseEntity(id = 1L, title = "Taxi", amount = 20.0, category = currentCategory, date = date)
+            )
+        )
+
+        val result = repository.getExpensesByCategory(currentCategory).first()
+
+        assertEquals(listOf(2L, 1L), result.map { it.id })
     }
 
     @Test
@@ -95,10 +115,17 @@ class ExpenseRepositoryImplTest {
     @Test
     fun insertCategory_delegatesToDao() = runTest(testDispatcher) {
         val category = ExpenseCategory(id = "PETS", displayName = "Pets", colorHex = 0xFFFF9800, iconName = "Pets")
-        coEvery { categoryDao.insertCategory(any()) } returns Unit
+        coEvery { categoryDao.insertCategory(any()) } returns 7L
 
-        repository.insertCategory(category)
+        assertTrue(repository.insertCategory(category))
 
         coVerify { categoryDao.insertCategory(match { it.id == "PETS" && it.displayName == "Pets" }) }
+    }
+
+    @Test
+    fun insertCategory_reportsIgnoredConflicts() = runTest(testDispatcher) {
+        coEvery { categoryDao.insertCategory(any()) } returns -1L
+
+        assertFalse(repository.insertCategory(ExpenseCategory.FOOD))
     }
 }
