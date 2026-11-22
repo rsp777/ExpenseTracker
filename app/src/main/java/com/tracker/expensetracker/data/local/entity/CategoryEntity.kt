@@ -1,5 +1,6 @@
 package com.tracker.expensetracker.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.tracker.expensetracker.domain.model.ExpenseCategory
@@ -11,14 +12,17 @@ data class CategoryEntity(
     val displayName: String,
     val colorHex: Long,
     val iconName: String = "Category",
-    val isDefault: Boolean = false
+    val isDefault: Boolean = false,
+    @ColumnInfo(defaultValue = "0")
+    val isArchived: Boolean = false,
 ) {
     fun toDomainModel(): ExpenseCategory = ExpenseCategory(
         id = id,
         displayName = displayName,
         colorHex = colorHex,
         iconName = iconName,
-        isDefault = isDefault
+        isDefault = isDefault,
+        isArchived = isArchived,
     )
 
     companion object {
@@ -27,7 +31,8 @@ data class CategoryEntity(
             displayName = category.displayName,
             colorHex = category.colorHex,
             iconName = category.iconName,
-            isDefault = category.isDefault
+            isDefault = category.isDefault,
+            isArchived = category.isArchived,
         )
     }
 }

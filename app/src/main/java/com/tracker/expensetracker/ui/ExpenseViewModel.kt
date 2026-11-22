@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -53,7 +54,8 @@ class ExpenseViewModel(
     private val _selectedCategory = MutableStateFlow<ExpenseCategory?>(null)
     private val _sheetState = MutableStateFlow<Pair<Boolean, Expense?>>(Pair(false, null))
     private val _isCurrencyDialogVisible = MutableStateFlow(false)
-    private val _isAddCategoryDialogVisible = MutableStateFlow(false)
+    private val _categoryEditor = MutableStateFlow<CategoryEditorState?>(null)
+    private val _isCategoryManagerVisible = MutableStateFlow(false)
     private val _isThemeDialogVisible = MutableStateFlow(false)
     private val _userMessage = MutableStateFlow<String?>(null)
 
@@ -82,14 +84,16 @@ class ExpenseViewModel(
     private val dialogsFlow = combine(
         _sheetState,
         _isCurrencyDialogVisible,
-        _isAddCategoryDialogVisible,
+        _categoryEditor,
+        _isCategoryManagerVisible,
         _isThemeDialogVisible
-    ) { sheetState, currencyVisible, addCatVisible, themeVisible ->
+    ) { sheetState, currencyVisible, categoryEditor, categoryManagerVisible, themeVisible ->
         DialogsState(
             isAddEditSheetOpen = sheetState.first,
             editingExpense = sheetState.second,
             isCurrencyDialogVisible = currencyVisible,
-            isAddCategoryDialogVisible = addCatVisible,
+            categoryEditor = categoryEditor,
+            isCategoryManagerVisible = categoryManagerVisible,
             isThemeDialogVisible = themeVisible
         )
     }
@@ -117,7 +121,8 @@ class ExpenseViewModel(
             themeMode = mode,
             isAddEditSheetOpen = dialogs.isAddEditSheetOpen,
             isCurrencyDialogVisible = dialogs.isCurrencyDialogVisible,
-            isAddCategoryDialogVisible = dialogs.isAddCategoryDialogVisible,
+            categoryEditor = dialogs.categoryEditor,
+            isCategoryManagerVisible = dialogs.isCategoryManagerVisible,
             isThemeDialogVisible = dialogs.isThemeDialogVisible,
             editingExpense = dialogs.editingExpense,
             userMessage = message
@@ -183,37 +188,82 @@ class ExpenseViewModel(
         }
     }
 
+    fun onOpenCategoryManager() {
+        _isCategoryManagerVisible.value = true
+    }
+
+    fun onDismissCategoryManager() {
+        _isCategoryManagerVisible.value = false
+    }
+
     fun onOpenAddCategory() {
-        _isAddCategoryDialogVisible.value = true
+        _categoryEditor.value = CategoryEditorState()
     }
 
-    fun onDismissAddCategory() {
-        _isAddCategoryDialogVisible.value = false
+    fun onOpenEditCategory(category: ExpenseCategory) {
+        if (!category.isBuiltIn) _categoryEditor.value = CategoryEditorState(category)
     }
 
-    fun onAddCategory(name: String, colorHex: Long, iconName: String) {
+    fun onDismissCategoryEditor() {
+        if (_categoryEditor.value?.isSaving != true) _categoryEditor.value = null
+    }
+
+    fun onCategoryNameChanged() {
+        _categoryEditor.update { it?.copy(error = null) }
+    }
+
+    fun onSaveCategory(name: String, colorHex: Long, iconName: String) {
+        val editor = _categoryEditor.value ?: return
+        if (editor.isSaving) return
         val trimmedName = name.trim()
-        if (trimmedName.isBlank()) {
-            _userMessage.value = "Category name cannot be empty"
+        val existing = editor.category
+        val duplicate = uiState.value.categories.any {
+            it.displayName.equals(trimmedName, ignoreCase = true) && existing?.hasSameId(it) != true
+        }
+        val error = when {
+            trimmedName.isBlank() -> "Please enter a category name"
+            duplicate -> "A category with this name already exists"
+            else -> null
+        }
+        if (error != null) {
+            _categoryEditor.value = editor.copy(error = error)
             return
         }
+
+        val category = ExpenseCategory(
+            id = existing?.id ?: trimmedName.uppercase().replace(' ', '_'),
+            displayName = trimmedName,
+            colorHex = colorHex,
+            iconName = iconName,
+            isArchived = existing?.isArchived ?: false,
+        )
+        _categoryEditor.value = editor.copy(error = null, isSaving = true)
         viewModelScope.launch {
-            val slug = trimmedName.uppercase().replace(" ", "_")
-            val newCategory = ExpenseCategory(
-                id = slug,
-                displayName = trimmedName,
-                colorHex = colorHex,
-                iconName = iconName,
-                isDefault = false
-            )
-            repository.insertCategory(newCategory)
-            _isAddCategoryDialogVisible.value = false
-            _userMessage.value = "Category '$trimmedName' created successfully"
+            val saved = if (existing == null) repository.insertCategory(category) else repository.updateCategory(category)
+            if (saved) {
+                _categoryEditor.value = null
+                _userMessage.value = if (existing == null) "Category '$trimmedName' created successfully"
+                    else "Category '$trimmedName' updated"
+            } else {
+                val message = if (existing == null) "A category with this name already exists"
+                    else "Couldn't update this category"
+                _categoryEditor.value = editor.copy(error = message, isSaving = false)
+            }
+        }
+    }
+
+    fun onSetCategoryArchived(category: ExpenseCategory, archived: Boolean) {
+        if (category.isBuiltIn) return
+        viewModelScope.launch {
+            if (repository.setCategoryArchived(category, archived)) {
+                _userMessage.value = if (archived) "Category '${category.displayName}' archived"
+                    else "Category '${category.displayName}' restored"
+            }
         }
     }
 
     fun onDeleteCategory(category: ExpenseCategory) {
-        if (category.isDefault) {
+        if (category.isBuiltIn) {
             _userMessage.value = "Default categories cannot be deleted"
             return
         }
@@ -232,6 +282,10 @@ class ExpenseViewModel(
     ) {
         viewModelScope.launch {
             val currentEditing = _sheetState.value.second
+            if (category.isArchived && currentEditing?.category?.hasSameId(category) != true) {
+                _userMessage.value = "Choose an active category"
+                return@launch
+            }
             if (currentEditing == null) {
                 val newExpense = Expense(
                     title = title.trim(),
@@ -288,7 +342,7 @@ class ExpenseViewModel(
                 expenses.filter { !it.date.isBefore(startOfMonth) && !it.date.isAfter(endOfMonth) }
             }
             ExpenseFilter.BY_CATEGORY -> {
-                if (category == null) expenses else expenses.filter { it.category == category }
+                if (category == null) expenses else expenses.filter { it.category.hasSameId(category) }
             }
         }
     }
@@ -296,8 +350,8 @@ class ExpenseViewModel(
     private fun calculateSummary(expenses: List<Expense>): ExpenseSummary {
         if (expenses.isEmpty()) return ExpenseSummary()
         val total = expenses.sumOf { it.amount }
-        val categoryTotals = expenses.groupBy { it.category }
-            .mapValues { (_, list) -> list.sumOf { it.amount } }
+        val categoryTotals = expenses.groupBy { it.category.id.uppercase() }
+            .values.associate { entries -> entries.first().category to entries.sumOf { it.amount } }
         val topCategory = categoryTotals.maxByOrNull { it.value }?.key
 
         return ExpenseSummary(
@@ -312,7 +366,8 @@ class ExpenseViewModel(
         val isAddEditSheetOpen: Boolean = false,
         val editingExpense: Expense? = null,
         val isCurrencyDialogVisible: Boolean = false,
-        val isAddCategoryDialogVisible: Boolean = false,
+        val categoryEditor: CategoryEditorState? = null,
+        val isCategoryManagerVisible: Boolean = false,
         val isThemeDialogVisible: Boolean = false
     )
 

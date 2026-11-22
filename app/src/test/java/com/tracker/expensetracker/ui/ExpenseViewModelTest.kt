@@ -216,16 +216,17 @@ class ExpenseViewModelTest {
     }
 
     @Test
-    fun onAddCategory_insertsCategoryAndShowsMessage() = runTest(testDispatcher) {
+    fun onSaveCategory_insertsCategoryAndShowsMessage() = runTest(testDispatcher) {
         every { repository.getAllExpenses() } returns flowOf(emptyList())
-        coEvery { repository.insertCategory(any()) } returns Unit
+        coEvery { repository.insertCategory(any()) } returns true
 
         viewModel = ExpenseViewModel(repository, preferencesRepository)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect()
         }
 
-        viewModel.onAddCategory("Streaming", 0xFFFFCA28, "Movie")
+        viewModel.onOpenAddCategory()
+        viewModel.onSaveCategory("Streaming", 0xFFFFCA28, "Movie")
         advanceUntilIdle()
 
         coVerify {
@@ -234,6 +235,63 @@ class ExpenseViewModelTest {
             })
         }
         assertEquals("Category 'Streaming' created successfully", viewModel.uiState.value.userMessage)
+    }
+
+    @Test
+    fun onSaveCategory_editsCategoryWithoutChangingIdOrArchiveState() = runTest(testDispatcher) {
+        val original = ExpenseCategory("TRAVEL", "Travel", 0xFF2E7D32, "Flight", isArchived = true)
+        every { repository.getAllExpenses() } returns flowOf(emptyList())
+        every { repository.getAllCategories() } returns flowOf(listOf(original))
+        coEvery { repository.updateCategory(any()) } returns true
+        viewModel = ExpenseViewModel(repository, preferencesRepository)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        viewModel.onOpenEditCategory(original)
+        viewModel.onSaveCategory("Work travel", 0xFF42A5F5, "Work")
+        advanceUntilIdle()
+
+        coVerify { repository.updateCategory(original.copy(displayName = "Work travel", colorHex = 0xFF42A5F5, iconName = "Work")) }
+        coVerify(exactly = 0) { repository.insertCategory(any()) }
+        assertEquals(null, viewModel.uiState.value.categoryEditor)
+    }
+
+    @Test
+    fun categoryFilter_keepsArchivedExpensesWithTheSameId() = runTest(testDispatcher) {
+        val original = ExpenseCategory("TRAVEL", "Travel", 0xFF2E7D32, "Flight")
+        val archived = original.copy(displayName = "Work travel", isArchived = true)
+        val expenses = listOf(
+            Expense(id = 1, title = "Train", amount = 20.0, category = original),
+            Expense(id = 2, title = "Taxi", amount = 15.0, category = archived),
+            Expense(id = 3, title = "Lunch", amount = 7.0, category = ExpenseCategory.FOOD)
+        )
+        every { repository.getAllExpenses() } returns flowOf(expenses)
+        every { repository.getAllCategories() } returns flowOf(listOf(archived))
+        viewModel = ExpenseViewModel(repository, preferencesRepository)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        viewModel.onFilterSelected(ExpenseFilter.BY_CATEGORY, archived)
+        advanceUntilIdle()
+
+        assertEquals(listOf(1L, 2L), viewModel.uiState.value.expenses.map { it.id })
+        assertEquals(1, viewModel.uiState.value.summary.categoryTotals.size)
+        assertEquals(35.0, viewModel.uiState.value.summary.totalSpent, 0.001)
+    }
+
+    @Test
+    fun onSaveExpense_rejectsArchivedCategoryForNewExpense() = runTest(testDispatcher) {
+        val archived = ExpenseCategory("TRAVEL", "Travel", 0xFF2E7D32, "Flight", isArchived = true)
+        every { repository.getAllExpenses() } returns flowOf(emptyList())
+        viewModel = ExpenseViewModel(repository, preferencesRepository)
+
+        viewModel.onOpenAddExpense()
+        viewModel.onSaveExpense("Train", 20.0, archived, LocalDate.now(), "")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { repository.insertExpense(any()) }
     }
 
     @Test
