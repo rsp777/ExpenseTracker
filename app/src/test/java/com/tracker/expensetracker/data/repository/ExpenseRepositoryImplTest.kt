@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.LocalDate
@@ -113,10 +115,17 @@ class ExpenseRepositoryImplTest {
     @Test
     fun insertCategory_delegatesToDao() = runTest(testDispatcher) {
         val category = ExpenseCategory(id = "PETS", displayName = "Pets", colorHex = 0xFFFF9800, iconName = "Pets")
-        coEvery { categoryDao.insertCategory(any()) } returns Unit
+        coEvery { categoryDao.insertCategory(any()) } returns 7L
 
-        repository.insertCategory(category)
+        assertTrue(repository.insertCategory(category))
 
         coVerify { categoryDao.insertCategory(match { it.id == "PETS" && it.displayName == "Pets" }) }
+    }
+
+    @Test
+    fun insertCategory_reportsIgnoredConflicts() = runTest(testDispatcher) {
+        coEvery { categoryDao.insertCategory(any()) } returns -1L
+
+        assertFalse(repository.insertCategory(ExpenseCategory.FOOD))
     }
 }

@@ -52,8 +52,10 @@ class ExpenseViewModel(
     private val _filter = MutableStateFlow(ExpenseFilter.ALL)
     private val _selectedCategory = MutableStateFlow<ExpenseCategory?>(null)
     private val _sheetState = MutableStateFlow<Pair<Boolean, Expense?>>(Pair(false, null))
+    private var isSavingExpense = false
     private val _isCurrencyDialogVisible = MutableStateFlow(false)
     private val _isAddCategoryDialogVisible = MutableStateFlow(false)
+    private val _addCategoryError = MutableStateFlow<String?>(null)
     private val _isThemeDialogVisible = MutableStateFlow(false)
     private val _userMessage = MutableStateFlow<String?>(null)
 
@@ -83,13 +85,15 @@ class ExpenseViewModel(
         _sheetState,
         _isCurrencyDialogVisible,
         _isAddCategoryDialogVisible,
+        _addCategoryError,
         _isThemeDialogVisible
-    ) { sheetState, currencyVisible, addCatVisible, themeVisible ->
+    ) { sheetState, currencyVisible, addCatVisible, addCategoryError, themeVisible ->
         DialogsState(
             isAddEditSheetOpen = sheetState.first,
             editingExpense = sheetState.second,
             isCurrencyDialogVisible = currencyVisible,
             isAddCategoryDialogVisible = addCatVisible,
+            addCategoryError = addCategoryError,
             isThemeDialogVisible = themeVisible
         )
     }
@@ -118,6 +122,7 @@ class ExpenseViewModel(
             isAddEditSheetOpen = dialogs.isAddEditSheetOpen,
             isCurrencyDialogVisible = dialogs.isCurrencyDialogVisible,
             isAddCategoryDialogVisible = dialogs.isAddCategoryDialogVisible,
+            addCategoryError = dialogs.addCategoryError,
             isThemeDialogVisible = dialogs.isThemeDialogVisible,
             editingExpense = dialogs.editingExpense,
             userMessage = message
@@ -184,6 +189,7 @@ class ExpenseViewModel(
     }
 
     fun onOpenAddCategory() {
+        onAddCategoryNameChanged()
         _isAddCategoryDialogVisible.value = true
     }
 
@@ -191,10 +197,18 @@ class ExpenseViewModel(
         _isAddCategoryDialogVisible.value = false
     }
 
+    fun onAddCategoryNameChanged() {
+        _addCategoryError.value = null
+    }
+
     fun onAddCategory(name: String, colorHex: Long, iconName: String) {
         val trimmedName = name.trim()
         if (trimmedName.isBlank()) {
-            _userMessage.value = "Category name cannot be empty"
+            _addCategoryError.value = "Please enter a category name"
+            return
+        }
+        if (ExpenseCategory.DEFAULT_CATEGORIES.any { it.displayName.equals(trimmedName, ignoreCase = true) }) {
+            _addCategoryError.value = "A category with this name already exists"
             return
         }
         viewModelScope.launch {
@@ -205,9 +219,12 @@ class ExpenseViewModel(
                 iconName = iconName,
                 isDefault = false
             )
-            repository.insertCategory(newCategory)
-            _isAddCategoryDialogVisible.value = false
-            _userMessage.value = "Category '$trimmedName' created successfully"
+            if (repository.insertCategory(newCategory)) {
+                onDismissAddCategory()
+                _userMessage.value = "Category '$trimmedName' created successfully"
+            } else if (_isAddCategoryDialogVisible.value) {
+                _addCategoryError.value = "A category with this name already exists"
+            }
         }
     }
 
@@ -229,30 +246,34 @@ class ExpenseViewModel(
         date: LocalDate,
         notes: String
     ) {
+        val sheet = _sheetState.value
+        val (isOpen, editingExpense) = sheet
+        if (!isOpen || isSavingExpense || title.isBlank() || !amount.isFinite() || amount <= 0.0) {
+            return
+        }
+
+        isSavingExpense = true
         viewModelScope.launch {
-            val currentEditing = _sheetState.value.second
-            if (currentEditing == null) {
-                val newExpense = Expense(
+            try {
+                val expense = Expense(
+                    id = editingExpense?.id ?: 0,
                     title = title.trim(),
                     amount = amount,
                     category = category,
                     date = date,
                     notes = notes.trim()
                 )
-                repository.insertExpense(newExpense)
-                _userMessage.value = "Expense added successfully"
-            } else {
-                val updated = currentEditing.copy(
-                    title = title.trim(),
-                    amount = amount,
-                    category = category,
-                    date = date,
-                    notes = notes.trim()
-                )
-                repository.updateExpense(updated)
-                _userMessage.value = "Expense updated successfully"
+                if (editingExpense == null) {
+                    repository.insertExpense(expense)
+                    _userMessage.value = "Expense added successfully"
+                } else {
+                    repository.updateExpense(expense)
+                    _userMessage.value = "Expense updated successfully"
+                }
+                if (_sheetState.value === sheet) onDismissSheet()
+            } finally {
+                isSavingExpense = false
             }
-            onDismissSheet()
         }
     }
 
@@ -312,6 +333,7 @@ class ExpenseViewModel(
         val editingExpense: Expense? = null,
         val isCurrencyDialogVisible: Boolean = false,
         val isAddCategoryDialogVisible: Boolean = false,
+        val addCategoryError: String? = null,
         val isThemeDialogVisible: Boolean = false
     )
 

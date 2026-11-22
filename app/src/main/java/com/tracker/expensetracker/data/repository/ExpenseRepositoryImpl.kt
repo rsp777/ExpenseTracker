@@ -72,8 +72,8 @@ class ExpenseRepositoryImpl(
             .flowOn(ioDispatcher)
     }
 
-    override suspend fun insertCategory(category: ExpenseCategory) = withContext(ioDispatcher) {
-        categoryDao.insertCategory(CategoryEntity.fromDomainModel(category))
+    override suspend fun insertCategory(category: ExpenseCategory): Boolean = withContext(ioDispatcher) {
+        categoryDao.insertCategory(CategoryEntity.fromDomainModel(category)) != -1L
     }
 
     override suspend fun deleteCategory(category: ExpenseCategory) = withContext(ioDispatcher) {

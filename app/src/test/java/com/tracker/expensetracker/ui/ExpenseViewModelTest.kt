@@ -134,6 +134,7 @@ class ExpenseViewModelTest {
             viewModel.uiState.collect()
         }
 
+        viewModel.onOpenAddExpense()
         viewModel.onSaveExpense(
             title = "Coffee",
             amount = 4.5,
@@ -149,6 +150,37 @@ class ExpenseViewModelTest {
             })
         }
         assertEquals("Expense added successfully", viewModel.uiState.value.userMessage)
+    }
+
+    @Test
+    fun onSaveExpense_rejectsNonFiniteAndNonPositiveAmounts() = runTest(testDispatcher) {
+        every { repository.getAllExpenses() } returns flowOf(emptyList())
+        viewModel = ExpenseViewModel(repository, preferencesRepository)
+        viewModel.onOpenAddExpense()
+
+        for (amount in listOf(Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, 0.0, -1.0)) {
+            viewModel.onSaveExpense("Coffee", amount, ExpenseCategory.FOOD, LocalDate.now(), "")
+        }
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { repository.insertExpense(any()) }
+    }
+
+    @Test
+    fun onSaveExpense_ignoresRepeatedSubmissionsForTheSameSheet() = runTest(testDispatcher) {
+        every { repository.getAllExpenses() } returns flowOf(emptyList())
+        coEvery { repository.insertExpense(any()) } returns 1L
+        viewModel = ExpenseViewModel(repository, preferencesRepository)
+        viewModel.onOpenAddExpense()
+        val date = LocalDate.now()
+
+        viewModel.onSaveExpense("Coffee", 4.5, ExpenseCategory.FOOD, date, "")
+        viewModel.onSaveExpense("Coffee", 4.5, ExpenseCategory.FOOD, date, "")
+        advanceUntilIdle()
+        viewModel.onSaveExpense("Coffee", 4.5, ExpenseCategory.FOOD, date, "")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.insertExpense(any()) }
     }
 
     @Test
@@ -218,7 +250,7 @@ class ExpenseViewModelTest {
     @Test
     fun onAddCategory_insertsCategoryAndShowsMessage() = runTest(testDispatcher) {
         every { repository.getAllExpenses() } returns flowOf(emptyList())
-        coEvery { repository.insertCategory(any()) } returns Unit
+        coEvery { repository.insertCategory(any()) } returns true
 
         viewModel = ExpenseViewModel(repository, preferencesRepository)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -234,6 +266,29 @@ class ExpenseViewModelTest {
             })
         }
         assertEquals("Category 'Streaming' created successfully", viewModel.uiState.value.userMessage)
+    }
+
+    @Test
+    fun onAddCategory_showsConflictAndKeepsDialogOpen() = runTest(testDispatcher) {
+        every { repository.getAllExpenses() } returns flowOf(emptyList())
+        coEvery { repository.insertCategory(any()) } returns false
+
+        viewModel = ExpenseViewModel(repository, preferencesRepository)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        viewModel.onOpenAddCategory()
+        viewModel.onAddCategory(" food ", 0xFFFFCA28, "Restaurant")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.insertCategory(match { it.id == ExpenseCategory.FOOD.id }) }
+        assertTrue(viewModel.uiState.value.isAddCategoryDialogVisible)
+        assertEquals("A category with this name already exists", viewModel.uiState.value.addCategoryError)
+
+        viewModel.onAddCategoryNameChanged()
+        advanceUntilIdle()
+        assertEquals(null, viewModel.uiState.value.addCategoryError)
     }
 
     @Test

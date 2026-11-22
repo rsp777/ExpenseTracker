@@ -541,7 +541,7 @@ fun AddEditExpenseSheet(
             Button(
                 onClick = {
                     val amount = amountText.toDoubleOrNull()
-                    if (amount == null || amount <= 0.0) {
+                    if (amount == null || !amount.isFinite() || amount <= 0.0) {
                         errorMessage = "Please enter a valid amount greater than 0"
                         return@Button
                     }
@@ -644,13 +644,14 @@ fun CurrencySelectionDialog(
 
 @Composable
 fun AddCategoryDialog(
+    errorMessage: String?,
+    onNameChanged: () -> Unit,
     onAddCategory: (name: String, colorHex: Long, iconName: String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var selectedColor by remember { mutableStateOf(CATEGORY_PALETTE_COLORS[0]) }
     var selectedIconName by remember { mutableStateOf(AVAILABLE_CATEGORY_ICONS[0].first) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -671,9 +672,10 @@ fun AddCategoryDialog(
                     value = name,
                     onValueChange = {
                         name = it
-                        errorMessage = null
+                        onNameChanged()
                     },
                     label = { Text("Category Name") },
+                    isError = errorMessage != null,
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -807,13 +809,7 @@ fun AddCategoryDialog(
         },
         confirmButton = {
             Button(
-                onClick = {
-                    if (name.isBlank()) {
-                        errorMessage = "Please enter a category name"
-                        return@Button
-                    }
-                    onAddCategory(name.trim(), selectedColor, selectedIconName)
-                },
+                onClick = { onAddCategory(name, selectedColor, selectedIconName) },
                 shape = RoundedCornerShape(100.dp)
             ) {
                 Text("Create Category")
