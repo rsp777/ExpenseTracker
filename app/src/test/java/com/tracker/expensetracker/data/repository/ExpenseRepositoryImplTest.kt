@@ -50,6 +50,24 @@ class ExpenseRepositoryImplTest {
     }
 
     @Test
+    fun getExpensesByCategory_matchesCategoryIdAcrossStoredSnapshots() = runTest(testDispatcher) {
+        val date = LocalDate.of(2026, 11, 22)
+        val savedCategory = ExpenseCategory("WORK:::TRAVEL", "Work:::Travel", 0xFF2E7D32, "Flight")
+        val currentCategory = savedCategory.copy(displayName = "Business travel", iconName = "DirectionsCar")
+        every { expenseDao.getAllExpenses() } returns flowOf(
+            listOf(
+                ExpenseEntity(id = 3L, title = "Lunch", amount = 15.0, category = ExpenseCategory.FOOD, date = date),
+                ExpenseEntity(id = 2L, title = "Flight", amount = 45.0, category = savedCategory, date = date),
+                ExpenseEntity(id = 1L, title = "Taxi", amount = 20.0, category = currentCategory, date = date)
+            )
+        )
+
+        val result = repository.getExpensesByCategory(currentCategory).first()
+
+        assertEquals(listOf(2L, 1L), result.map { it.id })
+    }
+
+    @Test
     fun insertExpense_delegatesToDao() = runTest(testDispatcher) {
         val expense = Expense(title = "Coffee", amount = 4.5, category = ExpenseCategory.FOOD, date = LocalDate.now())
         coEvery { expenseDao.insertExpense(any()) } returns 42L

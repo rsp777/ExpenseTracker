@@ -198,9 +198,8 @@ class ExpenseViewModel(
             return
         }
         viewModelScope.launch {
-            val slug = trimmedName.uppercase().replace(" ", "_")
             val newCategory = ExpenseCategory(
-                id = slug,
+                id = ExpenseCategory.customIdForName(trimmedName),
                 displayName = trimmedName,
                 colorHex = colorHex,
                 iconName = iconName,

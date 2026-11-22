@@ -34,8 +34,9 @@ class ExpenseRepositoryImpl(
     }
 
     override fun getExpensesByCategory(category: ExpenseCategory): Flow<List<Expense>> {
-        return expenseDao.getExpensesByCategory(category)
-            .map { entities -> entities.map { it.toDomainModel() } }
+        // Stored categories can use different formats and have different display metadata.
+        return expenseDao.getAllExpenses()
+            .map { entities -> entities.filter { it.category == category }.map { it.toDomainModel() } }
             .flowOn(ioDispatcher)
     }
 

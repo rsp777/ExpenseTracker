@@ -7,7 +7,6 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.tracker.expensetracker.data.local.entity.ExpenseEntity
-import com.tracker.expensetracker.domain.model.ExpenseCategory
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
@@ -18,9 +17,6 @@ interface ExpenseDao {
 
     @Query("SELECT * FROM expenses WHERE date BETWEEN :startDate AND :endDate ORDER BY date DESC, id DESC")
     fun getExpensesByDateRange(startDate: LocalDate, endDate: LocalDate): Flow<List<ExpenseEntity>>
-
-    @Query("SELECT * FROM expenses WHERE category = :category ORDER BY date DESC, id DESC")
-    fun getExpensesByCategory(category: ExpenseCategory): Flow<List<ExpenseEntity>>
 
     @Query("SELECT * FROM expenses WHERE id = :id LIMIT 1")
     suspend fun getExpenseById(id: Long): ExpenseEntity?
