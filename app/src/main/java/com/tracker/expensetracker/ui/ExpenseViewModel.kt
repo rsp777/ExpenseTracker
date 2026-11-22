@@ -231,7 +231,7 @@ class ExpenseViewModel(
         }
 
         val category = ExpenseCategory(
-            id = existing?.id ?: trimmedName.uppercase().replace(' ', '_'),
+            id = existing?.id ?: ExpenseCategory.customIdForName(trimmedName),
             displayName = trimmedName,
             colorHex = colorHex,
             iconName = iconName,

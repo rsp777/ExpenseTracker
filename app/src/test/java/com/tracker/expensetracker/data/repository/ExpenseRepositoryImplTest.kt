@@ -1,5 +1,6 @@
 package com.tracker.expensetracker.data.repository
 
+import com.tracker.expensetracker.data.local.converter.Converters
 import com.tracker.expensetracker.data.local.dao.CategoryDao
 import com.tracker.expensetracker.data.local.dao.ExpenseDao
 import com.tracker.expensetracker.data.local.entity.CategoryEntity
@@ -55,11 +56,13 @@ class ExpenseRepositoryImplTest {
 
     @Test
     fun historicalExpensesUseCurrentCategoryDuringRenameAndArchive() = runTest(testDispatcher) {
-        val original = ExpenseCategory("TRAVEL", "Travel", 0xFF2E7D32, "Flight")
+        val original = ExpenseCategory("WORK:::TRAVEL", "Work:::Travel", 0xFF2E7D32, "Flight")
         val renamed = original.copy(displayName = "Business travel", colorHex = 0xFF42A5F5, iconName = "Work")
+        val legacySnapshot = "${original.id}:::${original.displayName}:::${original.colorHex}:::Flight:::false"
+        val storedCategory = checkNotNull(Converters().toCategory(legacySnapshot))
         val categories = MutableStateFlow(listOf(CategoryEntity.fromDomainModel(original)))
         val expense = ExpenseEntity(
-            id = 11L, title = "Train", amount = 18.50, category = original, date = LocalDate.of(2026, 11, 1)
+            id = 11L, title = "Train", amount = 18.50, category = storedCategory, date = LocalDate.of(2026, 11, 1)
         )
         every { categoryDao.getAllCategories() } returns categories
         every { expenseDao.getAllExpenses() } returns flowOf(listOf(expense))

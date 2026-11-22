@@ -17,6 +17,8 @@ data class ExpenseCategory(
     fun hasSameId(other: ExpenseCategory): Boolean = id.equals(other.id, ignoreCase = true)
 
     companion object {
+        internal fun customIdForName(name: String): String = name.uppercase().replace(' ', '_')
+
         val FOOD = ExpenseCategory("FOOD", "Food & Dining", 0xFFFF7043, "Restaurant", true)
         val TRANSPORT = ExpenseCategory("TRANSPORT", "Transportation", 0xFF42A5F5, "DirectionsCar", true)
         val SHOPPING = ExpenseCategory("SHOPPING", "Shopping", 0xFFAB47BC, "ShoppingCart", true)
