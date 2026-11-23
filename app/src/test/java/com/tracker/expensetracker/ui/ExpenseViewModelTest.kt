@@ -186,15 +186,22 @@ class ExpenseViewModelTest {
     }
 
     @Test
-    fun onSaveExpense_updatesExistingExpense() = runTest(testDispatcher) {
+    fun onSaveExpense_updatesExistingExpenseAndDateFilters() = runTest(testDispatcher) {
         val existing = Expense(id = 5, title = "Lunch", amount = 12.0, category = ExpenseCategory.FOOD)
-        every { repository.getAllExpenses() } returns flowOf(listOf(existing))
-        coEvery { repository.updateExpense(any()) } returns Unit
+        val savedExpenses = MutableStateFlow(listOf(existing))
+        every { repository.getAllExpenses() } returns savedExpenses
+        coEvery { repository.updateExpense(any()) } coAnswers {
+            savedExpenses.value = listOf(firstArg<Expense>())
+        }
 
         viewModel = ExpenseViewModel(repository, preferencesRepository)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect()
         }
+
+        viewModel.onFilterSelected(ExpenseFilter.TODAY)
+        advanceUntilIdle()
+        assertEquals(listOf(existing), viewModel.uiState.value.expenses)
 
         val correctedDate = existing.date.minusDays(1)
         viewModel.onOpenEditExpense(existing)
@@ -213,6 +220,15 @@ class ExpenseViewModelTest {
             })
         }
         assertEquals("Expense updated successfully", viewModel.uiState.value.userMessage)
+        assertTrue(viewModel.uiState.value.expenses.isEmpty())
+        assertEquals(0, viewModel.uiState.value.summary.totalCount)
+
+        viewModel.onFilterSelected(ExpenseFilter.ALL)
+        advanceUntilIdle()
+
+        val savedExpense = viewModel.uiState.value.expenses.single()
+        assertEquals(existing.id, savedExpense.id)
+        assertEquals(correctedDate, savedExpense.date)
     }
 
     @Test
