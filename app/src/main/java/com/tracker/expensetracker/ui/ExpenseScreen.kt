@@ -7,7 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -98,10 +98,10 @@ fun ExpenseScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
-                    IconButton(onClick = { viewModel.onOpenAddCategory() }) {
+                    IconButton(onClick = viewModel::onOpenCategoryManager) {
                         Icon(
-                            imageVector = Icons.Default.AddCircleOutline,
-                            contentDescription = "Add Category",
+                            imageVector = Icons.Default.Category,
+                            contentDescription = "Manage categories",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -288,14 +288,21 @@ fun ExpenseScreen(
             )
         }
 
-        if (uiState.isAddCategoryDialogVisible) {
-            AddCategoryDialog(
-                errorMessage = uiState.addCategoryError,
-                onNameChanged = viewModel::onAddCategoryNameChanged,
-                onAddCategory = { name, colorHex, iconName ->
-                    viewModel.onAddCategory(name, colorHex, iconName)
-                },
-                onDismiss = { viewModel.onDismissAddCategory() }
+        val categoryEditor = uiState.categoryEditor
+        if (categoryEditor != null) {
+            CategoryEditorDialog(
+                state = categoryEditor,
+                onNameChanged = viewModel::onCategoryNameChanged,
+                onSave = viewModel::onSaveCategory,
+                onDismiss = viewModel::onDismissCategoryEditor
+            )
+        } else if (uiState.isCategoryManagerVisible) {
+            CategoryManagerDialog(
+                categories = uiState.categories.filterNot { it.isBuiltIn },
+                onAdd = viewModel::onOpenAddCategory,
+                onEdit = viewModel::onOpenEditCategory,
+                onSetArchived = viewModel::onSetCategoryArchived,
+                onDismiss = viewModel::onDismissCategoryManager
             )
         }
 

@@ -5,20 +5,16 @@ data class ExpenseCategory(
     val displayName: String,
     val colorHex: Long,
     val iconName: String = "Category",
-    val isDefault: Boolean = false
+    val isDefault: Boolean = false,
+    val isArchived: Boolean = false,
 ) {
     val name: String
         get() = id
 
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is ExpenseCategory) return false
-        return id.equals(other.id, ignoreCase = true)
-    }
+    val isBuiltIn: Boolean
+        get() = isDefault || DEFAULT_CATEGORIES.any { hasSameId(it) }
 
-    override fun hashCode(): Int {
-        return id.lowercase().hashCode()
-    }
+    fun hasSameId(other: ExpenseCategory): Boolean = id.equals(other.id, ignoreCase = true)
 
     companion object {
         internal fun customIdForName(name: String): String = name.uppercase().replace(' ', '_')

@@ -12,12 +12,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +37,7 @@ import com.tracker.expensetracker.domain.model.ExpenseCategory
 import com.tracker.expensetracker.domain.model.ExpenseFilter
 import com.tracker.expensetracker.domain.model.ExpenseSummary
 import com.tracker.expensetracker.domain.model.ThemeMode
+import com.tracker.expensetracker.ui.CategoryEditorState
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -242,9 +245,9 @@ fun FilterChipRow(
 
         categories.forEach { cat ->
             FilterChip(
-                selected = currentFilter == ExpenseFilter.BY_CATEGORY && selectedCategory == cat,
+                selected = currentFilter == ExpenseFilter.BY_CATEGORY && selectedCategory?.hasSameId(cat) == true,
                 onClick = { onFilterSelected(ExpenseFilter.BY_CATEGORY, cat) },
-                label = { Text(cat.displayName) },
+                label = { Text(if (cat.isArchived) "${cat.displayName} (archived)" else cat.displayName) },
                 shape = RoundedCornerShape(100.dp),
                 leadingIcon = {
                     Icon(
@@ -412,7 +415,7 @@ fun AddEditExpenseSheet(
     var title by remember { mutableStateOf(expenseToEdit?.title ?: "") }
     var amountText by remember { mutableStateOf(expenseToEdit?.amount?.toString() ?: "") }
     var selectedCategory by remember {
-        mutableStateOf(expenseToEdit?.category ?: categories.firstOrNull() ?: ExpenseCategory.FOOD)
+        mutableStateOf(expenseToEdit?.category ?: categories.firstOrNull { !it.isArchived } ?: ExpenseCategory.FOOD)
     }
     var notes by remember { mutableStateOf(expenseToEdit?.notes ?: "") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -493,12 +496,15 @@ fun AddEditExpenseSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(categories) { cat ->
-                    val isSelected = selectedCategory == cat
+                val selectableCategories = categories.filter { category ->
+                    !category.isArchived || expenseToEdit?.category?.hasSameId(category) == true
+                }
+                items(selectableCategories, key = { it.id }) { cat ->
+                    val isSelected = selectedCategory.hasSameId(cat)
                     FilterChip(
                         selected = isSelected,
                         onClick = { selectedCategory = cat },
-                        label = { Text(cat.displayName) },
+                        label = { Text(if (cat.isArchived) "${cat.displayName} (archived)" else cat.displayName) },
                         shape = RoundedCornerShape(100.dp),
                         leadingIcon = {
                             Icon(
@@ -643,21 +649,69 @@ fun CurrencySelectionDialog(
 }
 
 @Composable
-fun AddCategoryDialog(
-    errorMessage: String?,
-    onNameChanged: () -> Unit,
-    onAddCategory: (name: String, colorHex: Long, iconName: String) -> Unit,
-    onDismiss: () -> Unit
+fun CategoryManagerDialog(
+    categories: List<ExpenseCategory>,
+    onAdd: () -> Unit,
+    onEdit: (ExpenseCategory) -> Unit,
+    onSetArchived: (ExpenseCategory, Boolean) -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
-    var selectedColor by remember { mutableStateOf(CATEGORY_PALETTE_COLORS[0]) }
-    var selectedIconName by remember { mutableStateOf(AVAILABLE_CATEGORY_ICONS[0].first) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Manage categories") },
+        text = {
+            if (categories.isEmpty()) {
+                Text("No custom categories yet.")
+            } else {
+                LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                    items(categories, key = { it.id }) { category ->
+                        ListItem(
+                            headlineContent = { Text(category.displayName) },
+                            supportingContent = {
+                                if (category.isArchived) Text("Archived")
+                            },
+                            leadingContent = {
+                                Icon(category.getIcon(), contentDescription = null, tint = Color(category.colorHex))
+                            },
+                            trailingContent = {
+                                Column {
+                                    TextButton(onClick = { onEdit(category) }) { Text("Edit") }
+                                    TextButton(onClick = { onSetArchived(category, !category.isArchived) }) {
+                                        Text(if (category.isArchived) "Restore" else "Archive")
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onAdd) { Text("New category") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
+}
+
+@Composable
+fun CategoryEditorDialog(
+    state: CategoryEditorState,
+    onNameChanged: () -> Unit,
+    onSave: (name: String, colorHex: Long, iconName: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val category = state.category
+    var name by rememberSaveable(category?.id) { mutableStateOf(category?.displayName.orEmpty()) }
+    var selectedColor by rememberSaveable(category?.id) {
+        mutableStateOf(category?.colorHex ?: CATEGORY_PALETTE_COLORS.first())
+    }
+    var selectedIconName by rememberSaveable(category?.id) {
+        mutableStateOf(category?.iconName ?: AVAILABLE_CATEGORY_ICONS.first().first)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "New Expense Category",
+                text = if (category == null) "New Expense Category" else "Edit Expense Category",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -667,6 +721,7 @@ fun AddCategoryDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 460.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 OutlinedTextField(
                     value = name,
@@ -675,13 +730,13 @@ fun AddCategoryDialog(
                         onNameChanged()
                     },
                     label = { Text("Category Name") },
-                    isError = errorMessage != null,
+                    isError = state.error != null,
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                errorMessage?.let {
+                state.error?.let {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = it,
@@ -809,10 +864,11 @@ fun AddCategoryDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onAddCategory(name, selectedColor, selectedIconName) },
+                onClick = { onSave(name, selectedColor, selectedIconName) },
+                enabled = !state.isSaving,
                 shape = RoundedCornerShape(100.dp)
             ) {
-                Text("Create Category")
+                Text(if (category == null) "Create Category" else "Save Changes")
             }
         },
         dismissButton = {
