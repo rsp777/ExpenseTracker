@@ -216,64 +216,68 @@ fun FilterChipRow(
     currentFilter: ExpenseFilter,
     selectedCategory: ExpenseCategory?,
     categories: List<ExpenseCategory>,
-    onFilterSelected: (ExpenseFilter, ExpenseCategory?) -> Unit,
+    onDateFilterSelected: (ExpenseFilter) -> Unit,
+    onCategoryFilterSelected: (ExpenseCategory) -> Unit,
     onOpenAddCategory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        ExpenseFilter.entries.filter { it != ExpenseFilter.BY_CATEGORY }.forEach { filter ->
-            FilterChip(
-                selected = currentFilter == filter && selectedCategory == null,
-                onClick = { onFilterSelected(filter, null) },
-                label = { Text(filter.label) },
-                shape = RoundedCornerShape(100.dp),
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            )
-        }
-
-        categories.forEach { cat ->
-            FilterChip(
-                selected = currentFilter == ExpenseFilter.BY_CATEGORY && selectedCategory == cat,
-                onClick = { onFilterSelected(ExpenseFilter.BY_CATEGORY, cat) },
-                label = { Text(cat.displayName) },
-                shape = RoundedCornerShape(100.dp),
-                leadingIcon = {
-                    Icon(
-                        imageVector = cat.getIcon(),
-                        contentDescription = cat.displayName,
-                        tint = Color(cat.colorHex),
-                        modifier = Modifier.size(16.dp)
-                    )
-                },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            )
-        }
-
-        SuggestionChip(
-            onClick = onOpenAddCategory,
-            label = { Text("+ Category") },
-            shape = RoundedCornerShape(100.dp),
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add Category",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
+    val shape = RoundedCornerShape(100.dp)
+    val chipColors = FilterChipDefaults.filterChipColors(
+        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+    )
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ExpenseFilter.entries.forEach { filter ->
+                FilterChip(
+                    selected = currentFilter == filter,
+                    onClick = { onDateFilterSelected(filter) },
+                    label = { Text(filter.label) },
+                    shape = shape,
+                    colors = chipColors
                 )
             }
-        )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            categories.forEach { category ->
+                FilterChip(
+                    selected = selectedCategory?.id?.equals(category.id, ignoreCase = true) == true,
+                    onClick = { onCategoryFilterSelected(category) },
+                    label = { Text(category.displayName) },
+                    shape = shape,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = category.getIcon(),
+                            contentDescription = null,
+                            tint = Color(category.colorHex),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    colors = chipColors
+                )
+            }
+            SuggestionChip(
+                onClick = onOpenAddCategory,
+                label = { Text("New category") },
+                shape = shape,
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            )
+        }
     }
 }
 

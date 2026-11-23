@@ -115,13 +115,83 @@ class ExpenseViewModelTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect()
         }
-        viewModel.onFilterSelected(ExpenseFilter.BY_CATEGORY, ExpenseCategory.TRANSPORT)
+        viewModel.onCategoryFilterSelected(ExpenseCategory.TRANSPORT)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertEquals(1, state.expenses.size)
         assertEquals("Metro", state.expenses[0].title)
         assertEquals(10.0, state.summary.totalSpent, 0.001)
+    }
+
+    @Test
+    fun transactionFilters_combineTitleOrNotesWithDateAndCategory() = runTest(testDispatcher) {
+        val today = LocalDate.now()
+        val expenses = listOf(
+            Expense(id = 1, title = "Coffee", amount = 5.0, category = ExpenseCategory.FOOD, date = today),
+            Expense(id = 2, title = "Breakfast", amount = 7.0, category = ExpenseCategory.FOOD, date = today, notes = "Includes COFFEE"),
+            Expense(id = 3, title = "Coffee", amount = 4.0, category = ExpenseCategory.FOOD, date = today.minusDays(1)),
+            Expense(id = 4, title = "Coffee", amount = 8.0, category = ExpenseCategory.SHOPPING, date = today),
+            Expense(id = 5, title = "Lunch", amount = 9.0, category = ExpenseCategory.FOOD, date = today)
+        )
+        every { repository.getAllExpenses() } returns flowOf(expenses)
+        viewModel = ExpenseViewModel(repository, preferencesRepository)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        viewModel.onSearchQueryChanged("  cOfFeE  ")
+        viewModel.onDateFilterSelected(ExpenseFilter.TODAY)
+        viewModel.onCategoryFilterSelected(ExpenseCategory.FOOD)
+        advanceUntilIdle()
+
+        val filtered = viewModel.uiState.value
+        assertEquals(listOf(1L, 2L), filtered.expenses.map { it.id })
+        assertEquals(2, filtered.summary.totalCount)
+        assertEquals(12.0, filtered.summary.totalSpent, 0.001)
+
+        viewModel.onCategoryFilterSelected(ExpenseCategory.FOOD)
+        advanceUntilIdle()
+
+        val withoutCategory = viewModel.uiState.value
+        assertEquals(listOf(1L, 2L, 4L), withoutCategory.expenses.map { it.id })
+        assertEquals(ExpenseFilter.TODAY, withoutCategory.filter)
+        assertEquals("  cOfFeE  ", withoutCategory.searchQuery)
+    }
+
+    @Test
+    fun onClearFilters_restoresAllExpensesAndTheirSummary() = runTest(testDispatcher) {
+        val today = LocalDate.now()
+        val expenses = listOf(
+            Expense(id = 1, title = "Coffee", amount = 5.0, category = ExpenseCategory.FOOD, date = today),
+            Expense(id = 2, title = "Taxi", amount = 8.0, category = ExpenseCategory.TRANSPORT, date = today.minusDays(1))
+        )
+        every { repository.getAllExpenses() } returns flowOf(expenses)
+        viewModel = ExpenseViewModel(repository, preferencesRepository)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        viewModel.onSearchQueryChanged("No match")
+        viewModel.onDateFilterSelected(ExpenseFilter.TODAY)
+        viewModel.onCategoryFilterSelected(ExpenseCategory.FOOD)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.hasActiveFilters)
+        assertTrue(viewModel.uiState.value.expenses.isEmpty())
+        assertEquals(0, viewModel.uiState.value.summary.totalCount)
+
+        viewModel.onClearFilters()
+        advanceUntilIdle()
+
+        val cleared = viewModel.uiState.value
+        assertFalse(cleared.hasActiveFilters)
+        assertEquals("", cleared.searchQuery)
+        assertEquals(ExpenseFilter.ALL, cleared.filter)
+        assertEquals(null, cleared.selectedCategory)
+        assertEquals(listOf(1L, 2L), cleared.expenses.map { it.id })
+        assertEquals(2, cleared.summary.totalCount)
+        assertEquals(13.0, cleared.summary.totalSpent, 0.001)
     }
 
     @Test
