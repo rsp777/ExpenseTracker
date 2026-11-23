@@ -4,17 +4,22 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tracker.expensetracker.BuildConfig
@@ -27,6 +32,7 @@ fun ExpenseScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -98,10 +104,10 @@ fun ExpenseScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
-                    IconButton(onClick = { viewModel.onOpenAddCategory() }) {
+                    IconButton(onClick = viewModel::onOpenCategoryManager) {
                         Icon(
-                            imageVector = Icons.Default.AddCircleOutline,
-                            contentDescription = "Add Category",
+                            imageVector = Icons.Default.Category,
+                            contentDescription = "Manage categories",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -152,15 +158,29 @@ fun ExpenseScreen(
             }
 
             item {
-                FilterChipRow(
-                    currentFilter = uiState.filter,
-                    selectedCategory = uiState.selectedCategory,
-                    categories = uiState.categories,
-                    onFilterSelected = { filter, category ->
-                        viewModel.onFilterSelected(filter, category)
-                    },
-                    onOpenAddCategory = { viewModel.onOpenAddCategory() }
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = uiState.searchQuery,
+                        onValueChange = viewModel::onSearchQueryChanged,
+                        label = { Text("Search titles and notes") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    FilterChipRow(
+                        currentFilter = uiState.filter,
+                        selectedCategory = uiState.selectedCategory,
+                        categories = uiState.categories,
+                        onDateFilterSelected = viewModel::onDateFilterSelected,
+                        onCategoryFilterSelected = viewModel::onCategoryFilterSelected,
+                        onOpenAddCategory = viewModel::onOpenAddCategory
+                    )
+                    if (uiState.hasActiveFilters) {
+                        TextButton(onClick = viewModel::onClearFilters) { Text("Clear filters") }
+                    }
+                }
             }
 
             item {
@@ -223,14 +243,18 @@ fun ExpenseScreen(
                             }
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "No expenses recorded",
+                                text = if (uiState.hasActiveFilters) "No matching expenses" else "No expenses recorded",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Tap 'New Expense' below to add your first transaction",
+                                text = if (uiState.hasActiveFilters) {
+                                    "Try a different search or filter"
+                                } else {
+                                    "Tap 'New Expense' below to add your first transaction"
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -288,14 +312,21 @@ fun ExpenseScreen(
             )
         }
 
-        if (uiState.isAddCategoryDialogVisible) {
-            AddCategoryDialog(
-                errorMessage = uiState.addCategoryError,
-                onNameChanged = viewModel::onAddCategoryNameChanged,
-                onAddCategory = { name, colorHex, iconName ->
-                    viewModel.onAddCategory(name, colorHex, iconName)
-                },
-                onDismiss = { viewModel.onDismissAddCategory() }
+        val categoryEditor = uiState.categoryEditor
+        if (categoryEditor != null) {
+            CategoryEditorDialog(
+                state = categoryEditor,
+                onNameChanged = viewModel::onCategoryNameChanged,
+                onSave = viewModel::onSaveCategory,
+                onDismiss = viewModel::onDismissCategoryEditor
+            )
+        } else if (uiState.isCategoryManagerVisible) {
+            CategoryManagerDialog(
+                categories = uiState.categories.filterNot { it.isBuiltIn },
+                onAdd = viewModel::onOpenAddCategory,
+                onEdit = viewModel::onOpenEditCategory,
+                onSetArchived = viewModel::onSetCategoryArchived,
+                onDismiss = viewModel::onDismissCategoryManager
             )
         }
 
