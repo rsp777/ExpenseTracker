@@ -13,6 +13,7 @@ data class ExpenseUiState(
     val summary: ExpenseSummary = ExpenseSummary(),
     val filter: ExpenseFilter = ExpenseFilter.ALL,
     val selectedCategory: ExpenseCategory? = null,
+    val searchQuery: String = "",
     val categories: List<ExpenseCategory> = ExpenseCategory.DEFAULT_CATEGORIES,
     val currency: AppCurrency = AppCurrency.USD,
     val theme: CustomAppTheme = CustomAppTheme.DYNAMIC,
@@ -24,7 +25,11 @@ data class ExpenseUiState(
     val isThemeDialogVisible: Boolean = false,
     val editingExpense: Expense? = null,
     val userMessage: String? = null
-)
+) {
+    val hasActiveFilters: Boolean
+        get() = filter != ExpenseFilter.ALL || selectedCategory != null || searchQuery.isNotBlank()
+}
+
 
 data class CategoryEditorState(
     val category: ExpenseCategory? = null,

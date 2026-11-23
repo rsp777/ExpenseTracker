@@ -50,8 +50,7 @@ class ExpenseViewModel(
     }
 ) : ViewModel() {
 
-    private val _filter = MutableStateFlow(ExpenseFilter.ALL)
-    private val _selectedCategory = MutableStateFlow<ExpenseCategory?>(null)
+    private val _transactionFilters = MutableStateFlow(TransactionFilters())
     private val _sheetState = MutableStateFlow<Pair<Boolean, Expense?>>(Pair(false, null))
     private var isSavingExpense = false
     private val _isCurrencyDialogVisible = MutableStateFlow(false)
@@ -75,13 +74,6 @@ class ExpenseViewModel(
         Pair(theme, mode)
     }
 
-    private val filterFlow = combine(
-        _filter,
-        _selectedCategory
-    ) { filter, category ->
-        Pair(filter, category)
-    }
-
     private val dialogsFlow = combine(
         _sheetState,
         _isCurrencyDialogVisible,
@@ -102,20 +94,20 @@ class ExpenseViewModel(
     val uiState: StateFlow<ExpenseUiState> = combine(
         dataFlow,
         themeFlow,
-        filterFlow,
+        _transactionFilters,
         dialogsFlow,
         _userMessage
     ) { data, themePair, filters, dialogs, message ->
         val (allExpenses, categories, currency) = data
         val (theme, mode) = themePair
-        val (filter, category) = filters
-        val filteredExpenses = applyFilter(allExpenses, filter, category)
+        val filteredExpenses = applyFilters(allExpenses, filters)
         val summary = calculateSummary(filteredExpenses)
         ExpenseUiState(
             expenses = filteredExpenses,
             summary = summary,
-            filter = filter,
-            selectedCategory = category,
+            filter = filters.dateFilter,
+            selectedCategory = filters.category,
+            searchQuery = filters.query,
             categories = categories,
             currency = currency,
             theme = theme,
@@ -134,9 +126,23 @@ class ExpenseViewModel(
         initialValue = ExpenseUiState()
     )
 
-    fun onFilterSelected(filter: ExpenseFilter, category: ExpenseCategory? = null) {
-        _filter.value = filter
-        _selectedCategory.value = category
+    fun onSearchQueryChanged(query: String) {
+        _transactionFilters.update { it.copy(query = query) }
+    }
+
+    fun onDateFilterSelected(filter: ExpenseFilter) {
+        _transactionFilters.update { it.copy(dateFilter = filter) }
+    }
+
+    fun onCategoryFilterSelected(category: ExpenseCategory) {
+        _transactionFilters.update { current ->
+            val alreadySelected = current.category?.hasSameId(category) == true
+            current.copy(category = if (alreadySelected) null else category)
+        }
+    }
+
+    fun onClearFilters() {
+        _transactionFilters.value = TransactionFilters()
     }
 
     fun onOpenAddExpense() {
@@ -328,28 +334,26 @@ class ExpenseViewModel(
         _userMessage.value = null
     }
 
-    private fun applyFilter(
-        expenses: List<Expense>,
-        filter: ExpenseFilter,
-        category: ExpenseCategory?
-    ): List<Expense> {
+    private fun applyFilters(expenses: List<Expense>, filters: TransactionFilters): List<Expense> {
         val today = LocalDate.now()
-        return when (filter) {
-            ExpenseFilter.ALL -> expenses
-            ExpenseFilter.TODAY -> expenses.filter { it.date == today }
+        val dateRange = when (filters.dateFilter) {
+            ExpenseFilter.ALL -> null
+            ExpenseFilter.TODAY -> today..today
             ExpenseFilter.THIS_WEEK -> {
-                val startOfWeek = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                val endOfWeek = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
-                expenses.filter { !it.date.isBefore(startOfWeek) && !it.date.isAfter(endOfWeek) }
+                val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                monday..monday.plusDays(6)
             }
-            ExpenseFilter.THIS_MONTH -> {
-                val startOfMonth = today.withDayOfMonth(1)
-                val endOfMonth = today.with(TemporalAdjusters.lastDayOfMonth())
-                expenses.filter { !it.date.isBefore(startOfMonth) && !it.date.isAfter(endOfMonth) }
-            }
-            ExpenseFilter.BY_CATEGORY -> {
-                if (category == null) expenses else expenses.filter { it.category.hasSameId(category) }
-            }
+            ExpenseFilter.THIS_MONTH -> today.withDayOfMonth(1)..today.with(TemporalAdjusters.lastDayOfMonth())
+        }
+        val category = filters.category
+        val query = filters.query.trim()
+        if (dateRange == null && category == null && query.isEmpty()) return expenses
+
+        return expenses.filter { expense ->
+            (dateRange == null || expense.date in dateRange) &&
+                (category == null || expense.category.hasSameId(category)) &&
+                (query.isEmpty() || expense.title.contains(query, ignoreCase = true) ||
+                    expense.notes.contains(query, ignoreCase = true))
         }
     }
 
@@ -367,6 +371,12 @@ class ExpenseViewModel(
             highestCategory = topCategory
         )
     }
+
+    private data class TransactionFilters(
+        val dateFilter: ExpenseFilter = ExpenseFilter.ALL,
+        val category: ExpenseCategory? = null,
+        val query: String = "",
+    )
 
     private data class DialogsState(
         val isAddEditSheetOpen: Boolean = false,
