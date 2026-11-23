@@ -20,8 +20,8 @@ data class ExpenseUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val isAddEditSheetOpen: Boolean = false,
     val isCurrencyDialogVisible: Boolean = false,
-    val isAddCategoryDialogVisible: Boolean = false,
-    val addCategoryError: String? = null,
+    val categoryEditor: CategoryEditorState? = null,
+    val isCategoryManagerVisible: Boolean = false,
     val isThemeDialogVisible: Boolean = false,
     val editingExpense: Expense? = null,
     val userMessage: String? = null
@@ -29,3 +29,10 @@ data class ExpenseUiState(
     val hasActiveFilters: Boolean
         get() = filter != ExpenseFilter.ALL || selectedCategory != null || searchQuery.isNotBlank()
 }
+
+
+data class CategoryEditorState(
+    val category: ExpenseCategory? = null,
+    val error: String? = null,
+    val isSaving: Boolean = false,
+)
