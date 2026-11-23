@@ -1,11 +1,12 @@
 # Expense Tracker
 
-[![Version](https://img.shields.io/badge/Version-v1.0.0-brightgreen.svg)](README.md)
+[![Latest release](https://img.shields.io/badge/Release-v1.0.0-brightgreen.svg)](https://github.com/rsp777/ExpenseTracker/releases/tag/v1.0.0)
+[![Development version](https://img.shields.io/badge/Dev-v1.0.1-orange.svg)](https://github.com/rsp777/ExpenseTracker/tree/dev)
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026%2B)-green.svg)](README.md)
 
-A high-performance, offline-first personal expense tracking application built following modern Android engineering standards, Jetpack Compose, Material 3, Clean Architecture with Unidirectional Data Flow (UDF), and automated CI/CD pipelines.
+Expense Tracker is an offline-first Android app for recording expenses and reviewing spending. It uses Jetpack Compose, Material 3, and Room.
 
-The development build is based on `1.0.1` with Android version code `2`. It fixes category overwrites, category names with punctuation, invalid expense amounts, and duplicate saves.
+The current `dev` build uses version code `2` and displays `1.0.1-dev.<commit>` in the app. The latest published release is `v1.0.0`.
 
 ## Architecture & Technology Stack
 - UI Framework: Modern Jetpack Compose with Material 3.
@@ -23,18 +24,25 @@ The development build is based on `1.0.1` with Android version code `2`. It fixe
   - 3 Appearance Modes: **Auto (System)**, **Light Mode**, and **Dark Mode** with full tonal surface elevation and contrast.
   - Persistent preference saving in SharedPreferences so your chosen theme and mode survive app restarts.
 - **Multi-Currency Selection**: Select your preferred currency (USD $, EUR €, GBP £, INR ₹, JPY ¥, CAD CA$, AUD AU$, CHF CHF, CNY ¥, BRL R$) with immediate localized formatting across all cards, sheets, and summaries.
-- **Custom Category Management**: Create and add custom categories with custom titles, an 8-color Material color palette, and 16 distinct category icons, persisted directly in Room database alongside default categories.
-- **Instant Filtering**: Filter expenses effortlessly by Today, This Week, This Month, or specific Categories (default and custom).
-- **Add & Edit Transactions**: Intuitive bottom sheet input for amounts in the selected currency, categories with custom color tags and icons, dates, and optional notes.
+- Create custom categories with colors and icons, edit them, and archive or restore them. Archived categories remain available in history and filters, and the new-expense picker shows active categories. [Issue #7](https://github.com/rsp777/ExpenseTracker/issues/7)
+- Search expense titles and notes offline. Combine the query with date and category filters and see totals and transaction counts for the matching entries. [Issue #8](https://github.com/rsp777/ExpenseTracker/issues/8)
+- Set the purchase date when adding an expense and correct it later. The date picker defaults to today for a new expense and to the saved date when editing. [Issue #6](https://github.com/rsp777/ExpenseTracker/issues/6)
 - **Manage Transactions**: Quick editing and safe deletion with confirmation dialogs.
 - **Privacy & Offline First**: 100% on-device local SQLite database; zero external network tracking.
 
 ## Building & Verification
-- Run Unit Tests: `./gradlew testDebugUnitTest`
-- Build Debug APK: `./gradlew assembleDebug`
 
-## Release History & Changelog Table
+Run the debug build and unit tests from the project root.
 
-| Version | Highlights & Changes | Build / Target |
-|---|---|---|
-| `v1.0.0` | Initial release featuring multi-currency selection (USD, EUR, GBP, INR, JPY, CAD, AUD, etc.), custom category creation with color/icon pickers, offline Room persistence with version 2 migration, Jetpack Compose Material 3 UI, UDF architecture, comprehensive unit tests, and GitHub Actions CI gateway. | Build 1 (SDK 37) |
+```powershell
+.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest
+```
+
+On macOS or Linux, use `./gradlew` with the same tasks. The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
+
+## Release History
+
+| Version | Highlights | Android build |
+| --- | --- | --- |
+| `1.0.1-dev.<commit>` | Expense date editing, category editing and archiving, and combined transaction search and filters. Fixes category overwrites, punctuation in category names, invalid amounts, and duplicate saves. Room schema 3 migrates existing categories. [Persistence fixes](https://github.com/rsp777/ExpenseTracker/issues/9) | Version code 2, target SDK 37 |
+| [`v1.0.0`](https://github.com/rsp777/ExpenseTracker/releases/tag/v1.0.0) | Initial release with multi-currency display, custom category creation, offline Room storage, and Material 3 themes. | Version code 1, target SDK 37 |
