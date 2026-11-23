@@ -547,7 +547,7 @@ fun AddEditExpenseSheet(
             Button(
                 onClick = {
                     val amount = amountText.toDoubleOrNull()
-                    if (amount == null || amount <= 0.0) {
+                    if (amount == null || !amount.isFinite() || amount <= 0.0) {
                         errorMessage = "Please enter a valid amount greater than 0"
                         return@Button
                     }

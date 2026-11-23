@@ -53,6 +53,7 @@ class ExpenseViewModel(
     private val _filter = MutableStateFlow(ExpenseFilter.ALL)
     private val _selectedCategory = MutableStateFlow<ExpenseCategory?>(null)
     private val _sheetState = MutableStateFlow<Pair<Boolean, Expense?>>(Pair(false, null))
+    private var isSavingExpense = false
     private val _isCurrencyDialogVisible = MutableStateFlow(false)
     private val _categoryEditor = MutableStateFlow<CategoryEditorState?>(null)
     private val _isCategoryManagerVisible = MutableStateFlow(false)
@@ -280,34 +281,39 @@ class ExpenseViewModel(
         date: LocalDate,
         notes: String
     ) {
+        val sheet = _sheetState.value
+        val (isOpen, editingExpense) = sheet
+        if (!isOpen || isSavingExpense || title.isBlank() || !amount.isFinite() || amount <= 0.0) {
+            return
+        }
+
+        if (category.isArchived && editingExpense?.category?.hasSameId(category) != true) {
+            _userMessage.value = "Choose an active category"
+            return
+        }
+
+        isSavingExpense = true
         viewModelScope.launch {
-            val currentEditing = _sheetState.value.second
-            if (category.isArchived && currentEditing?.category?.hasSameId(category) != true) {
-                _userMessage.value = "Choose an active category"
-                return@launch
-            }
-            if (currentEditing == null) {
-                val newExpense = Expense(
+            try {
+                val expense = Expense(
+                    id = editingExpense?.id ?: 0,
                     title = title.trim(),
                     amount = amount,
                     category = category,
                     date = date,
                     notes = notes.trim()
                 )
-                repository.insertExpense(newExpense)
-                _userMessage.value = "Expense added successfully"
-            } else {
-                val updated = currentEditing.copy(
-                    title = title.trim(),
-                    amount = amount,
-                    category = category,
-                    date = date,
-                    notes = notes.trim()
-                )
-                repository.updateExpense(updated)
-                _userMessage.value = "Expense updated successfully"
+                if (editingExpense == null) {
+                    repository.insertExpense(expense)
+                    _userMessage.value = "Expense added successfully"
+                } else {
+                    repository.updateExpense(expense)
+                    _userMessage.value = "Expense updated successfully"
+                }
+                if (_sheetState.value === sheet) onDismissSheet()
+            } finally {
+                isSavingExpense = false
             }
-            onDismissSheet()
         }
     }
 
