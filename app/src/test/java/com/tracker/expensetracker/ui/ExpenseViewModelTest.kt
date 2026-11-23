@@ -204,19 +204,21 @@ class ExpenseViewModelTest {
             viewModel.uiState.collect()
         }
 
+        val purchaseDate = LocalDate.now().minusDays(2)
         viewModel.onOpenAddExpense()
         viewModel.onSaveExpense(
             title = "Coffee",
             amount = 4.5,
             category = ExpenseCategory.FOOD,
-            date = LocalDate.now(),
+            date = purchaseDate,
             notes = "Morning latte"
         )
         advanceUntilIdle()
 
         coVerify {
             repository.insertExpense(match {
-                it.title == "Coffee" && it.amount == 4.5 && it.category == ExpenseCategory.FOOD
+                it.title == "Coffee" && it.amount == 4.5 &&
+                    it.category == ExpenseCategory.FOOD && it.date == purchaseDate
             })
         }
         assertEquals("Expense added successfully", viewModel.uiState.value.userMessage)
@@ -254,32 +256,51 @@ class ExpenseViewModelTest {
     }
 
     @Test
-    fun onSaveExpense_updatesExistingExpense() = runTest(testDispatcher) {
+    fun onSaveExpense_updatesExistingExpenseAndDateFilters() = runTest(testDispatcher) {
         val existing = Expense(id = 5, title = "Lunch", amount = 12.0, category = ExpenseCategory.FOOD)
-        every { repository.getAllExpenses() } returns flowOf(listOf(existing))
-        coEvery { repository.updateExpense(any()) } returns Unit
+        val savedExpenses = MutableStateFlow(listOf(existing))
+        every { repository.getAllExpenses() } returns savedExpenses
+        coEvery { repository.updateExpense(any()) } coAnswers {
+            savedExpenses.value = listOf(firstArg<Expense>())
+        }
 
         viewModel = ExpenseViewModel(repository, preferencesRepository)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect()
         }
 
+        viewModel.onSearchQueryChanged("Lunch")
+        viewModel.onCategoryFilterSelected(ExpenseCategory.FOOD)
+        viewModel.onDateFilterSelected(ExpenseFilter.TODAY)
+        advanceUntilIdle()
+        assertEquals(listOf(existing), viewModel.uiState.value.expenses)
+
+        val correctedDate = existing.date.minusDays(1)
         viewModel.onOpenEditExpense(existing)
         viewModel.onSaveExpense(
             title = "Business Lunch",
             amount = 25.0,
             category = ExpenseCategory.FOOD,
-            date = existing.date,
+            date = correctedDate,
             notes = "With client"
         )
         advanceUntilIdle()
 
         coVerify {
             repository.updateExpense(match {
-                it.id == 5L && it.title == "Business Lunch" && it.amount == 25.0
+                it.id == 5L && it.title == "Business Lunch" && it.amount == 25.0 && it.date == correctedDate
             })
         }
         assertEquals("Expense updated successfully", viewModel.uiState.value.userMessage)
+        assertTrue(viewModel.uiState.value.expenses.isEmpty())
+        assertEquals(0, viewModel.uiState.value.summary.totalCount)
+
+        viewModel.onDateFilterSelected(ExpenseFilter.ALL)
+        advanceUntilIdle()
+
+        val savedExpense = viewModel.uiState.value.expenses.single()
+        assertEquals(existing.id, savedExpense.id)
+        assertEquals(correctedDate, savedExpense.date)
     }
 
     @Test

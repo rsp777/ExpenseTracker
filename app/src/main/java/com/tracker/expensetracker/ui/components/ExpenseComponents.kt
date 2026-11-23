@@ -38,8 +38,11 @@ import com.tracker.expensetracker.domain.model.ExpenseFilter
 import com.tracker.expensetracker.domain.model.ExpenseSummary
 import com.tracker.expensetracker.domain.model.ThemeMode
 import com.tracker.expensetracker.ui.CategoryEditorState
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 fun ExpenseCategory.getIcon(): ImageVector {
     return when (iconName.lowercase()) {
@@ -422,6 +425,8 @@ fun AddEditExpenseSheet(
         mutableStateOf(expenseToEdit?.category ?: categories.firstOrNull { !it.isArchived } ?: ExpenseCategory.FOOD)
     }
     var notes by remember { mutableStateOf(expenseToEdit?.notes ?: "") }
+    var date by rememberSaveable(expenseToEdit?.id) { mutableStateOf(expenseToEdit?.date ?: LocalDate.now()) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(
@@ -433,6 +438,7 @@ fun AddEditExpenseSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 36.dp)
         ) {
@@ -528,6 +534,14 @@ fun AddEditExpenseSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
+            OutlinedButton(onClick = { showDatePicker = true }) {
+                Icon(Icons.Default.DateRange, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Date: ${date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))}")
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
             OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
@@ -563,7 +577,7 @@ fun AddEditExpenseSheet(
                         title,
                         amount,
                         selectedCategory,
-                        expenseToEdit?.date ?: LocalDate.now(),
+                        date,
                         notes
                     )
                 },
@@ -578,6 +592,31 @@ fun AddEditExpenseSheet(
                     fontSize = 16.sp
                 )
             }
+        }
+    }
+
+    if (showDatePicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    enabled = pickerState.selectedDateMillis != null,
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            date = Instant.ofEpochMilli(millis).atOffset(ZoneOffset.UTC).toLocalDate()
+                        }
+                        showDatePicker = false
+                    }
+                ) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = pickerState)
         }
     }
 }
