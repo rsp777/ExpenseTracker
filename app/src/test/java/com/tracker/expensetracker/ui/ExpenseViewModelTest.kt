@@ -134,19 +134,21 @@ class ExpenseViewModelTest {
             viewModel.uiState.collect()
         }
 
+        val purchaseDate = LocalDate.now().minusDays(2)
         viewModel.onOpenAddExpense()
         viewModel.onSaveExpense(
             title = "Coffee",
             amount = 4.5,
             category = ExpenseCategory.FOOD,
-            date = LocalDate.now(),
+            date = purchaseDate,
             notes = "Morning latte"
         )
         advanceUntilIdle()
 
         coVerify {
             repository.insertExpense(match {
-                it.title == "Coffee" && it.amount == 4.5 && it.category == ExpenseCategory.FOOD
+                it.title == "Coffee" && it.amount == 4.5 &&
+                    it.category == ExpenseCategory.FOOD && it.date == purchaseDate
             })
         }
         assertEquals("Expense added successfully", viewModel.uiState.value.userMessage)
@@ -194,19 +196,20 @@ class ExpenseViewModelTest {
             viewModel.uiState.collect()
         }
 
+        val correctedDate = existing.date.minusDays(1)
         viewModel.onOpenEditExpense(existing)
         viewModel.onSaveExpense(
             title = "Business Lunch",
             amount = 25.0,
             category = ExpenseCategory.FOOD,
-            date = existing.date,
+            date = correctedDate,
             notes = "With client"
         )
         advanceUntilIdle()
 
         coVerify {
             repository.updateExpense(match {
-                it.id == 5L && it.title == "Business Lunch" && it.amount == 25.0
+                it.id == 5L && it.title == "Business Lunch" && it.amount == 25.0 && it.date == correctedDate
             })
         }
         assertEquals("Expense updated successfully", viewModel.uiState.value.userMessage)
