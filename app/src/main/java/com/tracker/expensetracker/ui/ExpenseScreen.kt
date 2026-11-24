@@ -8,7 +8,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Search
@@ -18,11 +17,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.tracker.expensetracker.BuildConfig
+import com.tracker.expensetracker.R
 import com.tracker.expensetracker.ui.components.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,57 +51,16 @@ fun ExpenseScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.AccountBalanceWallet,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "Expense Tracker",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "v${BuildConfig.VERSION_NAME} • Material You",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    Text("Expense Tracker", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 },
                 actions = {
-                    FilledTonalButton(
-                        onClick = { viewModel.onOpenCurrencyDialog() },
-                        shape = RoundedCornerShape(100.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = Modifier.height(36.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    ) {
-                        Text(
-                            text = "${uiState.currency.symbol} ${uiState.currency.code}",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                    TextButton(onClick = viewModel::onOpenCurrencyDialog) {
+                        Text(uiState.currency.code)
                     }
                     IconButton(onClick = { viewModel.onOpenThemeDialog() }) {
                         Icon(
                             imageVector = Icons.Default.Palette,
-                            contentDescription = "Theme & Appearance",
+                            contentDescription = "Appearance",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -128,7 +88,7 @@ fun ExpenseScreen(
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "Add Expense"
+                        contentDescription = null
                     )
                 },
                 text = {
@@ -174,8 +134,7 @@ fun ExpenseScreen(
                         selectedCategory = uiState.selectedCategory,
                         categories = uiState.categories,
                         onDateFilterSelected = viewModel::onDateFilterSelected,
-                        onCategoryFilterSelected = viewModel::onCategoryFilterSelected,
-                        onOpenAddCategory = viewModel::onOpenAddCategory
+                        onCategoryFilterSelected = viewModel::onCategoryFilterSelected
                     )
                     if (uiState.hasActiveFilters) {
                         TextButton(onClick = viewModel::onClearFilters) { Text("Clear filters") }
@@ -200,7 +159,11 @@ fun ExpenseScreen(
                         color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Text(
-                            text = "${uiState.expenses.size} entries",
+                            text = pluralStringResource(
+                            R.plurals.transaction_entries,
+                            uiState.expenses.size,
+                            uiState.expenses.size
+                        ),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -212,53 +175,17 @@ fun ExpenseScreen(
 
             if (uiState.expenses.isEmpty()) {
                 item {
-                    Card(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 24.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                        )
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(36.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(24.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                                modifier = Modifier.size(72.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.AccountBalanceWallet,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = if (uiState.hasActiveFilters) "No matching expenses" else "No expenses recorded",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = if (uiState.hasActiveFilters) {
-                                    "Try a different search or filter"
-                                } else {
-                                    "Tap 'New Expense' below to add your first transaction"
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text(
+                            text = if (uiState.hasActiveFilters) "No matching expenses" else "No expenses recorded",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             } else {
@@ -275,20 +202,6 @@ fun ExpenseScreen(
                 }
             }
 
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp, bottom = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Expense Tracker v${BuildConfig.VERSION_NAME} • Built with Material You",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
-            }
         }
 
         if (uiState.isAddEditSheetOpen) {
