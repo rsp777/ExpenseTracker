@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import com.tracker.expensetracker.notifications.BudgetAlertWorker
 
 private enum class BudgetPermissionPrompt { RATIONALE, SETTINGS }
@@ -27,26 +28,30 @@ private enum class BudgetPermissionPrompt { RATIONALE, SETTINGS }
 @Composable
 fun BudgetAlertSettings() {
     val activity = LocalActivity.current ?: return
-    val permission = Manifest.permission.POST_NOTIFICATIONS
+    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.POST_NOTIFICATIONS
+    } else null
     val requests = activity.getSharedPreferences("budget_alerts", Context.MODE_PRIVATE)
     var prompt by rememberSaveable { mutableStateOf<BudgetPermissionPrompt?>(null) }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
             BudgetAlertWorker.schedule(activity)
-        } else if (!ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)) {
+        } else if (permission != null && !ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)) {
             prompt = BudgetPermissionPrompt.SETTINGS
         }
     }
 
     val requestPermission = {
-        requests.edit().putBoolean("permission_requested", true).apply()
-        launcher.launch(permission)
+        if (permission != null) {
+            requests.edit { putBoolean("permission_requested", true) }
+            launcher.launch(permission)
+        }
     }
 
     TextButton(onClick = {
         when {
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            permission == null ||
                 ContextCompat.checkSelfPermission(activity, permission) == PackageManager.PERMISSION_GRANTED -> {
                 activity.startActivity(
                     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
@@ -62,7 +67,7 @@ fun BudgetAlertSettings() {
             else -> requestPermission()
         }
     }) {
-        Text(if (BudgetAlertWorker.canPost(activity)) "Alert settings" else "Enable budget alerts")
+        Text("Budget alert settings")
     }
 
     prompt?.let { activePrompt ->

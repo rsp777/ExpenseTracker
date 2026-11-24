@@ -49,11 +49,11 @@ class BudgetMigrationTest {
                 )
                 legacy.execSQL(
                     "INSERT INTO expenses VALUES (?, ?, ?, ?, ?, ?)",
-                    arrayOf(1L, "Existing purchase", 12.0, "TRAVEL", day.toEpochDay(), "Original notes")
+                    arrayOf<Any>(1L, "Existing purchase", 12.0, "TRAVEL", day.toEpochDay(), "Original notes")
                 )
                 legacy.execSQL(
                     "INSERT INTO categories VALUES (?, ?, ?, ?, ?, ?)",
-                    arrayOf("TRAVEL", "Travel", 0xFF42A5F5, "Flight", 0, 1)
+                    arrayOf<Any>("TRAVEL", "Travel", 0xFF42A5F5, "Flight", 0, 1)
                 )
                 legacy.version = 3
             }
