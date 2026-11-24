@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,6 +38,7 @@ fun ExpenseScreen(
     val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val newExpenseLabel = "New Expense"
 
     LaunchedEffect(uiState.userMessage) {
         uiState.userMessage?.let { msg ->
@@ -81,7 +84,8 @@ fun ExpenseScreen(
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { viewModel.onOpenAddExpense() },
+                onClick = viewModel::onOpenAddExpense,
+                modifier = Modifier.semantics { contentDescription = newExpenseLabel },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(20.dp),
@@ -93,7 +97,7 @@ fun ExpenseScreen(
                 },
                 text = {
                     Text(
-                        text = "New Expense",
+                        text = newExpenseLabel,
                         fontWeight = FontWeight.Bold
                     )
                 }
