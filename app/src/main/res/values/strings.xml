@@ -1,5 +1,25 @@
 <resources>
     <string name="app_name">Expense Tracker</string>
+    <string name="app_lock_title">App lock</string>
+    <string name="app_lock_toggle">Require authentication</string>
+    <string name="app_lock_settings_help">Uses your device’s biometrics or screen lock. While enabled, screenshots and recent-app previews are hidden.</string>
+    <string name="app_lock_timeout">Lock after leaving the app</string>
+    <string name="app_lock_locked">Expense Tracker is locked</string>
+    <string name="app_lock_unlock_help">Use your biometrics, PIN, pattern, or password to continue.</string>
+    <string name="app_lock_unlock">Unlock</string>
+    <string name="app_lock_unlock_title">Unlock Expense Tracker</string>
+    <string name="app_lock_enable_title">Turn on App lock</string>
+    <string name="app_lock_disable_title">Turn off App lock</string>
+    <string name="app_lock_unavailable">Set up a screen lock or supported biometric in device security settings to use App lock.</string>
+    <string name="app_lock_authentication_error">Couldn’t verify your identity. Try again or use your screen lock.</string>
+    <string name="app_lock_settings_error">Couldn’t save App lock settings. Try again.</string>
+    <string name="app_lock_security_settings">Device security settings</string>
+    <string name="app_lock_off">Off</string>
+    <string name="app_lock_immediately">Immediately</string>
+    <string name="app_lock_thirty_seconds">30 seconds</string>
+    <string name="app_lock_one_minute">1 minute</string>
+    <string name="app_lock_five_minutes">5 minutes</string>
+
     <plurals name="transaction_entries">
         <item quantity="one">%d entry</item>
         <item quantity="other">%d entries</item>
