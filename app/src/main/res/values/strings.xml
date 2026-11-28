@@ -1,5 +1,30 @@
 <resources>
     <string name="app_name">Expense Tracker</string>
+    <string name="backup_title">Export and backup</string>
+    <string name="backup_csv_description">CSV files contain readable transaction data.</string>
+    <string name="backup_save_csv">Save transactions as CSV</string>
+    <string name="backup_share_csv">Share transactions as CSV</string>
+    <string name="backup_create">Create encrypted backup</string>
+    <string name="backup_restore">Restore encrypted backup</string>
+    <string name="backup_close">Close</string>
+    <string name="backup_create_help">Use at least %1$d characters. Keep this passphrase in a safe place. You’ll need it to restore your backup.</string>
+    <string name="backup_restore_help">Restore adds missing transactions, categories, and budgets. It keeps existing category and budget settings where they match, skips matching transactions, and applies the backup’s currency and appearance.</string>
+    <string name="backup_passphrase">Backup passphrase</string>
+    <string name="backup_confirm_passphrase">Confirm passphrase</string>
+    <string name="backup_choose_location">Choose save location</string>
+    <string name="backup_restore_action">Restore</string>
+    <string name="backup_saved">Encrypted backup saved.</string>
+    <string name="backup_csv_saved">CSV saved.</string>
+    <string name="backup_passphrase_required_again">Enter a passphrase again to create the backup.</string>
+    <string name="backup_authentication_failed">Couldn’t unlock the backup. Check your passphrase and file.</string>
+    <string name="backup_invalid">This file is invalid or damaged.</string>
+    <string name="backup_unsupported_version">This backup requires a different version of Expense Tracker.</string>
+    <string name="backup_too_large">This backup exceeds the supported file size.</string>
+    <string name="backup_io_failed">Couldn’t complete the file operation. Try again.</string>
+    <string name="backup_share_unavailable">No app is available to share the CSV.</string>
+    <string name="backup_picker_unavailable">The file picker is unavailable.</string>
+    <string name="backup_restored">Restore complete. Added %1$d transactions, %2$d categories, and %3$d budgets.</string>
+
     <plurals name="transaction_entries">
         <item quantity="one">%d entry</item>
         <item quantity="other">%d entries</item>

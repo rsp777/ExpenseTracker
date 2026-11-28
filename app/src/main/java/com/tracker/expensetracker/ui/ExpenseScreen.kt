@@ -38,6 +38,7 @@ import com.tracker.expensetracker.ui.components.*
 fun ExpenseScreen(
     viewModel: ExpenseViewModel,
     budgetViewModel: BudgetViewModel,
+    dataBackupViewModel: DataBackupViewModel,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -88,6 +89,7 @@ fun ExpenseScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
+                    DataBackupActions(dataBackupViewModel)
                 },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(

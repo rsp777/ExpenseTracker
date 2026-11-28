@@ -11,6 +11,16 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ExpenseTracker">
+        <provider
+            android:name=".data.backup.ExpenseExportProvider"
+            android:authorities="${applicationId}.expense-exports"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/expense_export_paths" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -56,6 +56,17 @@ class UserPreferencesRepositoryImpl(
         _themeMode.value = mode
     }
 
+    internal fun restorePreferences(currency: AppCurrency, theme: CustomAppTheme, mode: ThemeMode) {
+        prefs.edit()
+            .putString(KEY_CURRENCY_CODE, currency.code)
+            .putString(KEY_THEME_ID, theme.id)
+            .putString(KEY_THEME_MODE, mode.name)
+            .apply()
+        _selectedCurrency.value = currency
+        _selectedTheme.value = theme
+        _themeMode.value = mode
+    }
+
     companion object {
         private const val PREFS_NAME = "expense_tracker_preferences"
         private const val KEY_CURRENCY_CODE = "selected_currency_code"

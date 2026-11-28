@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tracker.expensetracker.notifications.BudgetAlertWorker
 import com.tracker.expensetracker.ui.BudgetViewModel
+import com.tracker.expensetracker.ui.DataBackupViewModel
 import com.tracker.expensetracker.ui.ExpenseScreen
 import com.tracker.expensetracker.ui.ExpenseViewModel
 import com.tracker.expensetracker.ui.theme.ExpenseTrackerTheme
@@ -16,6 +17,7 @@ import com.tracker.expensetracker.ui.theme.ExpenseTrackerTheme
 class MainActivity : ComponentActivity() {
     private val viewModel: ExpenseViewModel by viewModels { ExpenseViewModel.Factory }
     private val budgetViewModel: BudgetViewModel by viewModels { BudgetViewModel.Factory }
+    private val dataBackupViewModel: DataBackupViewModel by viewModels { DataBackupViewModel.Factory }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,7 +28,11 @@ class MainActivity : ComponentActivity() {
                 customTheme = uiState.theme,
                 themeMode = uiState.themeMode
             ) {
-                ExpenseScreen(viewModel = viewModel, budgetViewModel = budgetViewModel)
+                ExpenseScreen(
+                    viewModel = viewModel,
+                    budgetViewModel = budgetViewModel,
+                    dataBackupViewModel = dataBackupViewModel,
+                )
             }
         }
     }
