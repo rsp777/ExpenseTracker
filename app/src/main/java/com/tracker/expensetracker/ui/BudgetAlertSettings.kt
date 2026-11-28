@@ -27,6 +27,21 @@ private enum class BudgetPermissionPrompt { RATIONALE, SETTINGS }
 
 @Composable
 fun BudgetAlertSettings() {
+    NotificationAccessSettings(
+        label = "Budget alert settings",
+        title = "Budget alerts",
+        rationale = "Allow notifications to get an alert when spending exceeds a budget.",
+        onGranted = BudgetAlertWorker::schedule,
+    )
+}
+
+@Composable
+internal fun NotificationAccessSettings(
+    label: String,
+    title: String,
+    rationale: String,
+    onGranted: (Context) -> Unit,
+) {
     val activity = LocalActivity.current ?: return
     val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         Manifest.permission.POST_NOTIFICATIONS
@@ -36,7 +51,7 @@ fun BudgetAlertSettings() {
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
-            BudgetAlertWorker.schedule(activity)
+            onGranted(activity)
         } else if (permission != null && !ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)) {
             prompt = BudgetPermissionPrompt.SETTINGS
         }
@@ -67,15 +82,15 @@ fun BudgetAlertSettings() {
             else -> requestPermission()
         }
     }) {
-        Text("Budget alert settings")
+        Text(label)
     }
 
     prompt?.let { activePrompt ->
         val requestsAccess = activePrompt == BudgetPermissionPrompt.RATIONALE
         AlertDialog(
             onDismissRequest = { prompt = null },
-            title = { Text("Budget alerts") },
-            text = { Text("Allow notifications to get an alert when spending exceeds a budget.") },
+            title = { Text(title) },
+            text = { Text(rationale) },
             confirmButton = {
                 TextButton(onClick = {
                     prompt = null

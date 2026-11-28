@@ -11,14 +11,16 @@ import com.tracker.expensetracker.data.local.converter.Converters
 import com.tracker.expensetracker.data.local.dao.BudgetDao
 import com.tracker.expensetracker.data.local.dao.CategoryDao
 import com.tracker.expensetracker.data.local.dao.ExpenseDao
+import com.tracker.expensetracker.data.local.dao.RecurringExpenseDao
 import com.tracker.expensetracker.data.local.entity.BudgetEntity
 import com.tracker.expensetracker.data.local.entity.CategoryEntity
 import com.tracker.expensetracker.data.local.entity.ExpenseEntity
+import com.tracker.expensetracker.data.local.entity.RecurringExpenseEntity
 import com.tracker.expensetracker.domain.model.ExpenseCategory
 
 @Database(
-    entities = [ExpenseEntity::class, CategoryEntity::class, BudgetEntity::class],
-    version = 4,
+    entities = [ExpenseEntity::class, CategoryEntity::class, BudgetEntity::class, RecurringExpenseEntity::class],
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -26,6 +28,7 @@ abstract class ExpenseDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun categoryDao(): CategoryDao
     abstract fun budgetDao(): BudgetDao
+    abstract fun recurringExpenseDao(): RecurringExpenseDao
 
     companion object {
         @Volatile
@@ -68,6 +71,31 @@ abstract class ExpenseDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS recurring_expenses (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        title TEXT NOT NULL,
+                        amount REAL NOT NULL,
+                        category TEXT NOT NULL,
+                        startDate INTEGER NOT NULL,
+                        notes TEXT NOT NULL,
+                        cadence TEXT NOT NULL,
+                        nextDate INTEGER NOT NULL,
+                        lastPostedDate INTEGER,
+                        paused INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_recurring_expenses_paused_nextDate " +
+                        "ON recurring_expenses (paused, nextDate)"
+                )
+            }
+        }
+
         fun getInstance(context: Context): ExpenseDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -75,7 +103,7 @@ abstract class ExpenseDatabase : RoomDatabase() {
                     ExpenseDatabase::class.java,
                     "expense_tracker.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)

@@ -4,15 +4,18 @@ import android.content.Context
 import com.tracker.expensetracker.data.local.ExpenseDatabase
 import com.tracker.expensetracker.data.repository.BudgetRepositoryImpl
 import com.tracker.expensetracker.data.repository.ExpenseRepositoryImpl
+import com.tracker.expensetracker.data.repository.RecurringExpenseRepositoryImpl
 import com.tracker.expensetracker.data.repository.UserPreferencesRepositoryImpl
 import com.tracker.expensetracker.domain.repository.BudgetRepository
 import com.tracker.expensetracker.domain.repository.ExpenseRepository
+import com.tracker.expensetracker.domain.repository.RecurringExpenseRepository
 import com.tracker.expensetracker.domain.repository.UserPreferencesRepository
 import com.tracker.expensetracker.notifications.BudgetAlertWorker
 
 interface AppContainer {
     val budgetRepository: BudgetRepository
     val expenseRepository: ExpenseRepository
+    val recurringExpenseRepository: RecurringExpenseRepository
     val userPreferencesRepository: UserPreferencesRepository
 }
 
@@ -33,6 +36,10 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             categoryDao = database.categoryDao(),
             onExpensesChanged = scheduleBudgetAlerts
         )
+    }
+
+    override val recurringExpenseRepository: RecurringExpenseRepository by lazy {
+        RecurringExpenseRepositoryImpl(database)
     }
 
     override val userPreferencesRepository: UserPreferencesRepository by lazy {

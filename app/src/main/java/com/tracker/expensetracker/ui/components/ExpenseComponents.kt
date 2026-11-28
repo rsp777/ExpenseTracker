@@ -325,8 +325,13 @@ fun AddEditExpenseSheet(
     categories: List<ExpenseCategory>,
     currency: AppCurrency,
     onDismiss: () -> Unit,
-    onOpenAddCategory: () -> Unit,
-    onSave: (title: String, amount: Double, category: ExpenseCategory, date: LocalDate, notes: String) -> Unit
+    onOpenAddCategory: (() -> Unit)?,
+    heading: String? = null,
+    actionLabel: String? = null,
+    dateLabel: String = "Date",
+    isSaving: Boolean = false,
+    additionalFields: @Composable () -> Unit = {},
+    onSave: (title: String, amount: Double, category: ExpenseCategory, date: LocalDate, notes: String) -> Unit,
 ) {
     var title by remember { mutableStateOf(expenseToEdit?.title ?: "") }
     var amountText by remember { mutableStateOf(expenseToEdit?.amount?.toString() ?: "") }
@@ -343,7 +348,7 @@ fun AddEditExpenseSheet(
     val scope = rememberCoroutineScope()
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isSaving) onDismiss() },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surface
@@ -356,7 +361,7 @@ fun AddEditExpenseSheet(
                 .padding(bottom = 36.dp)
         ) {
             Text(
-                text = if (expenseToEdit == null) "Add Expense" else "Edit Expense",
+                text = heading ?: if (expenseToEdit == null) "Add Expense" else "Edit Expense",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -414,14 +419,16 @@ fun AddEditExpenseSheet(
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold
                 )
-                TextButton(onClick = onOpenAddCategory) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("New Category", style = MaterialTheme.typography.labelMedium)
+                if (onOpenAddCategory != null) {
+                    TextButton(onClick = onOpenAddCategory) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("New Category", style = MaterialTheme.typography.labelMedium)
+                    }
                 }
             }
 
@@ -462,11 +469,12 @@ fun AddEditExpenseSheet(
             OutlinedButton(onClick = { showDatePicker = true }) {
                 Icon(Icons.Default.DateRange, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Date: ${date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))}")
+                Text("$dateLabel: ${date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))}")
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
+            additionalFields()
             OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
@@ -479,6 +487,7 @@ fun AddEditExpenseSheet(
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
+                enabled = !isSaving,
                 onClick = {
                     val amount = amountText.toDoubleOrNull()
                     if (amount == null || !amount.isFinite() || amount <= 0.0) {
@@ -505,7 +514,7 @@ fun AddEditExpenseSheet(
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
-                    text = if (expenseToEdit == null) "Add Expense" else "Save Changes",
+                    text = actionLabel ?: if (expenseToEdit == null) "Add Expense" else "Save Changes",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
