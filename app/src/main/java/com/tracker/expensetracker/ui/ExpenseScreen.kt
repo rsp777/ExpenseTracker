@@ -15,11 +15,13 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
@@ -33,18 +35,25 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tracker.expensetracker.R
 import com.tracker.expensetracker.ui.components.*
 
+private enum class ExpenseTab(val label: String, val title: String, val icon: ImageVector) {
+    HOME("Home", "Expense Tracker", Icons.Default.Home),
+    ANALYTICS("Analytics", "Analytics", Icons.AutoMirrored.Filled.ShowChart),
+    BUDGETS("Budgets", "Budgets", Icons.Default.AccountBalanceWallet)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpenseScreen(
     viewModel: ExpenseViewModel,
     budgetViewModel: BudgetViewModel,
+    analyticsViewModel: AnalyticsViewModel,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val budgetState by budgetViewModel.state.collectAsStateWithLifecycle()
-    var budgetsVisible by rememberSaveable { mutableStateOf(false) }
+    var selectedTab by rememberSaveable { mutableStateOf(ExpenseTab.HOME) }
     val dashboardScroll = rememberLazyListState()
-    BackHandler(enabled = budgetsVisible) { budgetsVisible = false }
+    BackHandler(enabled = selectedTab != ExpenseTab.HOME) { selectedTab = ExpenseTab.HOME }
     val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -65,7 +74,7 @@ fun ExpenseScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (budgetsVisible) "Budgets" else "Expense Tracker",
+                        selectedTab.title,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -98,25 +107,21 @@ fun ExpenseScreen(
         },
         bottomBar = {
             NavigationBar {
-                NavigationBarItem(
-                    selected = !budgetsVisible,
-                    onClick = { budgetsVisible = false },
-                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                    label = { Text("Home") }
-                )
-                NavigationBarItem(
-                    selected = budgetsVisible,
-                    onClick = {
-                        focusManager.clearFocus()
-                        budgetsVisible = true
-                    },
-                    icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
-                    label = { Text("Budgets") }
-                )
+                ExpenseTab.entries.forEach { tab ->
+                    NavigationBarItem(
+                        selected = tab == selectedTab,
+                        onClick = {
+                            focusManager.clearFocus()
+                            selectedTab = tab
+                        },
+                        icon = { Icon(tab.icon, contentDescription = null) },
+                        label = { Text(tab.label) }
+                    )
+                }
             }
         },
         floatingActionButton = {
-            if (!budgetsVisible) {
+            if (selectedTab == ExpenseTab.HOME) {
                 ExtendedFloatingActionButton(
                     onClick = viewModel::onOpenAddExpense,
                     modifier = Modifier.semantics { contentDescription = newExpenseLabel },
@@ -141,11 +146,19 @@ fun ExpenseScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        if (budgetsVisible) {
+        if (selectedTab == ExpenseTab.BUDGETS) {
             BudgetScreen(
                 state = budgetState,
                 onSave = budgetViewModel::saveLimit,
                 onRemove = budgetViewModel::removeLimit,
+                modifier = Modifier.fillMaxSize().padding(innerPadding)
+            )
+        } else if (selectedTab == ExpenseTab.ANALYTICS) {
+            val analytics by analyticsViewModel.state.collectAsStateWithLifecycle()
+            AnalyticsScreen(
+                state = analytics,
+                currency = uiState.currency,
+                onRangeSelected = analyticsViewModel::onRangeSelected,
                 modifier = Modifier.fillMaxSize().padding(innerPadding)
             )
         } else {

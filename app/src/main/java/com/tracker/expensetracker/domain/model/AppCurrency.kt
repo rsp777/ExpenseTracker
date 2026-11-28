@@ -1,5 +1,6 @@
 package com.tracker.expensetracker.domain.model
 
+import java.math.BigDecimal
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.text.NumberFormat
@@ -11,7 +12,11 @@ data class AppCurrency(
     val displayName: String,
     val locale: Locale = Locale.US
 ) {
-    fun format(amount: Double): String {
+    fun format(amount: Double): String = formatAmount(amount)
+
+    fun format(amount: BigDecimal): String = formatAmount(amount)
+
+    private fun formatAmount(amount: Number): String {
         return try {
             val format = NumberFormat.getCurrencyInstance(locale)
             format.format(amount)
