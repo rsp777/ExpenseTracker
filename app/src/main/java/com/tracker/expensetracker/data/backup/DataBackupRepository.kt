@@ -37,13 +37,24 @@ class DataBackupRepository(
 
     suspend fun createShareableCsv(): Uri = withContext(Dispatchers.IO) {
         val entries = expenses.getAllExpenses().first().map(ExpenseEntity::fromDomainModel)
+        createShareableFile("expenses-", ".csv") { file ->
+            file.bufferedWriter().use { it.writeExpenseCsv(entries, preferences.selectedCurrency.value) }
+        }
+    }
+
+    suspend fun createShareableBackup(password: CharArray): Uri = withContext(Dispatchers.IO) {
+        val document = createBackupDocument(password)
+        createShareableFile("expense-tracker-backup-", ".json") { it.writeBytes(document) }
+    }
+
+    private fun createShareableFile(prefix: String, extension: String, write: (File) -> Unit): Uri {
         val directory = File(context.cacheDir, "expense_exports")
         if (!directory.isDirectory && !directory.mkdirs()) throw IOException()
         val expiry = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1)
         directory.listFiles()?.forEach { if (it.isFile && it.lastModified() < expiry) it.delete() }
-        val file = File.createTempFile("expenses-", ".csv", directory)
-        try {
-            file.bufferedWriter().use { it.writeExpenseCsv(entries, preferences.selectedCurrency.value) }
+        val file = File.createTempFile(prefix, extension, directory)
+        return try {
+            write(file)
             FileProvider.getUriForFile(context, "${context.packageName}.expense-exports", file)
         } catch (error: Exception) {
             file.delete()
@@ -52,9 +63,13 @@ class DataBackupRepository(
     }
 
     suspend fun saveBackup(destination: Uri, password: CharArray) = withContext(Dispatchers.IO) {
-        val snapshot = database.withTransaction { readSnapshot() }
-        val document = BackupCodec.encode(snapshot, password)
+        val document = createBackupDocument(password)
         writeTo(destination) { it.write(document) }
+    }
+
+    private suspend fun createBackupDocument(password: CharArray): ByteArray {
+        val snapshot = database.withTransaction { readSnapshot() }
+        return BackupCodec.encode(snapshot, password)
     }
 
     suspend fun restoreBackup(source: Uri, password: CharArray): RestoreResult = withContext(Dispatchers.IO) {

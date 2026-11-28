@@ -38,7 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tracker.expensetracker.R
 import java.time.LocalDate
 
-private enum class BackupDialog { OPTIONS, CREATE, RESTORE }
+private enum class BackupDialog { OPTIONS, CREATE, SHARE, RESTORE }
 
 @Composable
 fun DataBackupActions(viewModel: DataBackupViewModel) {
@@ -70,13 +70,13 @@ fun DataBackupActions(viewModel: DataBackupViewModel) {
         }
     }
 
-    LaunchedEffect(state.shareUri) {
-        val uri = state.shareUri ?: return@LaunchedEffect
-        viewModel.clearShareUri()
+    LaunchedEffect(state.shareDocument) {
+        val document = state.shareDocument ?: return@LaunchedEffect
+        viewModel.clearShareDocument()
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/csv"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            clipData = ClipData.newRawUri("Expenses", uri)
+            type = document.mimeType
+            putExtra(Intent.EXTRA_STREAM, document.uri)
+            clipData = ClipData.newRawUri(context.getString(R.string.backup_title), document.uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         try {
@@ -116,6 +116,10 @@ fun DataBackupActions(viewModel: DataBackupViewModel) {
                     }) { Text(stringResource(R.string.backup_create)) }
                     TextButton(enabled = !state.busy, onClick = {
                         viewModel.clearMessage()
+                        dialog = BackupDialog.SHARE
+                    }) { Text(stringResource(R.string.backup_share_encrypted)) }
+                    TextButton(enabled = !state.busy, onClick = {
+                        viewModel.clearMessage()
                         launchPicker { openBackup.launch(arrayOf("*/*")) }
                     }) { Text(stringResource(R.string.backup_restore)) }
 
@@ -141,6 +145,15 @@ fun DataBackupActions(viewModel: DataBackupViewModel) {
                 launchPicker { saveBackup.launch("expense-tracker-backup-${LocalDate.now()}.json") }
             },
         )
+        BackupDialog.SHARE -> BackupPassphraseDialog(
+            creating = true,
+            sharing = true,
+            onCancel = { dialog = BackupDialog.OPTIONS },
+            onConfirm = { passphrase ->
+                viewModel.shareBackup(passphrase)
+                dialog = BackupDialog.OPTIONS
+            },
+        )
         BackupDialog.RESTORE -> BackupPassphraseDialog(
             creating = false,
             onCancel = {
@@ -160,6 +173,7 @@ fun DataBackupActions(viewModel: DataBackupViewModel) {
 @Composable
 private fun BackupPassphraseDialog(
     creating: Boolean,
+    sharing: Boolean = false,
     onCancel: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
@@ -171,7 +185,13 @@ private fun BackupPassphraseDialog(
 
     AlertDialog(
         onDismissRequest = onCancel,
-        title = { Text(stringResource(if (creating) R.string.backup_create else R.string.backup_restore)) },
+        title = {
+            Text(stringResource(when {
+                sharing -> R.string.backup_share_encrypted
+                creating -> R.string.backup_create
+                else -> R.string.backup_restore
+            }))
+        },
         text = {
             Column(
                 Modifier.verticalScroll(rememberScrollState()),
@@ -205,7 +225,11 @@ private fun BackupPassphraseDialog(
         },
         confirmButton = {
             TextButton(enabled = ready, onClick = { onConfirm(passphrase) }) {
-                Text(stringResource(if (creating) R.string.backup_choose_location else R.string.backup_restore_action))
+                Text(stringResource(when {
+                    sharing -> R.string.backup_share_action
+                    creating -> R.string.backup_choose_location
+                    else -> R.string.backup_restore_action
+                }))
             }
         },
         dismissButton = {

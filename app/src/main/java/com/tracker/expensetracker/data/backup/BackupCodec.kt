@@ -139,10 +139,24 @@ internal object BackupCodec {
     )
 
     private fun parseObject(bytes: ByteArray): JSONObject {
-        val tokens = JSONTokener(bytes.toString(Charsets.UTF_8))
+        val tokens = BackupJsonTokener(bytes.toString(Charsets.UTF_8))
         val result = tokens.nextValue() as? JSONObject ?: throw InvalidBackupException()
         require(tokens.nextClean() == '\u0000')
         return result
+    }
+
+    private class BackupJsonTokener(source: String) : JSONTokener(source) {
+        private var depth = 0
+
+        override fun nextValue(): Any? {
+            if (depth >= 32) throw InvalidBackupException()
+            depth++
+            return try {
+                super.nextValue()
+            } finally {
+                depth--
+            }
+        }
     }
 
     private fun JSONObject.string(key: String): String =

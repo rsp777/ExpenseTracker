@@ -117,6 +117,14 @@ class DataBackupDeviceTest {
         }
     }
 
+    @Test
+    fun rejectsExcessivelyNestedDocumentsBeforeParsingPayloads() {
+        val nested = "{\"unused\":" + "[".repeat(1000) + "0" + "]".repeat(1000) + "}"
+        assertThrows(InvalidBackupException::class.java) {
+            BackupCodec.decode(nested.toByteArray(), "Test Backup Passphrase".toCharArray())
+        }
+    }
+
     private fun repository(
         context: Context,
         database: ExpenseDatabase,

@@ -24,8 +24,10 @@ data class DataBackupUiState(
     val busy: Boolean = false,
     @param:StringRes val message: Int? = null,
     val restored: DataBackupRepository.RestoreResult? = null,
-    val shareUri: Uri? = null,
+    val shareDocument: BackupShareDocument? = null,
 )
+
+data class BackupShareDocument(val uri: Uri, val mimeType: String)
 
 class DataBackupViewModel(private val repository: DataBackupRepository) : ViewModel() {
     private val _state = MutableStateFlow(DataBackupUiState())
@@ -61,7 +63,16 @@ class DataBackupViewModel(private val repository: DataBackupRepository) : ViewMo
     }
 
     fun shareCsv() = perform {
-        DataBackupUiState(shareUri = repository.createShareableCsv())
+        DataBackupUiState(shareDocument = BackupShareDocument(repository.createShareableCsv(), "text/csv"))
+    }
+
+    fun shareBackup(passphrase: String) {
+        val password = passphrase.toCharArray()
+        perform(password) {
+            DataBackupUiState(
+                shareDocument = BackupShareDocument(repository.createShareableBackup(password), "application/json")
+            )
+        }
     }
 
     fun restore(source: Uri, passphrase: String) {
@@ -79,8 +90,8 @@ class DataBackupViewModel(private val repository: DataBackupRepository) : ViewMo
         _state.update { it.copy(message = null, restored = null) }
     }
 
-    fun clearShareUri() {
-        _state.update { it.copy(shareUri = null) }
+    fun clearShareDocument() {
+        _state.update { it.copy(shareDocument = null) }
     }
 
     override fun onCleared() {
