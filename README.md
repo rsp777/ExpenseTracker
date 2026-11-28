@@ -1,12 +1,12 @@
 # Expense Tracker
 
-[![Latest release](https://img.shields.io/badge/Release-v1.0.0-brightgreen.svg)](https://github.com/rsp777/ExpenseTracker/releases/tag/v1.0.0)
+[![Latest release](https://img.shields.io/github/v/release/rsp777/ExpenseTracker)](https://github.com/rsp777/ExpenseTracker/releases/latest)
 [![Development version](https://img.shields.io/badge/Dev-v1.0.1-orange.svg)](https://github.com/rsp777/ExpenseTracker/tree/dev)
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026%2B)-green.svg)](README.md)
 
 Expense Tracker is an offline-first Android app for recording expenses and reviewing spending. It uses Jetpack Compose, Material 3, and Room.
 
-The current `dev` build uses version code `2` and displays `1.0.1-dev.<commit>` in the app. The latest published release is `v1.0.0`.
+Version `1.0.1` uses Android version code `2`. Development builds show `1.0.1-dev.<commit>`. Open **Appearance** and scroll to the bottom to check the installed version. Published builds are listed on [GitHub Releases](https://github.com/rsp777/ExpenseTracker/releases).
 
 ## Architecture & Technology Stack
 - UI Framework: Modern Jetpack Compose with Material 3.
@@ -18,7 +18,8 @@ The current `dev` build uses version code `2` and displays `1.0.1-dev.<commit>` 
 - CI/CD Automation: GitHub Actions automated quality gate with dynamic version extraction, automated Git release tagging, and GitHub Release generation.
 
 ## Features
-- **Dashboard & Spending Summary**: Real-time spending overview, transaction count, and identification of the highest spending category.
+- The dashboard shows total spending, the transaction count, the top spending category, and progress toward the overall budget when one is set.
+- Open **Budgets** to set an overall monthly limit or limits by category. The app warns at 80%, shows when a limit is reached or exceeded, and can post a local alert for overspending when notifications are enabled. [Issue #3](https://github.com/rsp777/ExpenseTracker/issues/3)
 - **Custom Modernized Theme Engine**: Comprehensive appearance customization featuring:
   - 6 Material 3 color palettes: **Material Dynamic** (Android 12+ wallpaper sync), **Emerald Mint**, **Sapphire Blue**, **Amethyst Violet**, **Sunset Copper**, and **Midnight Obsidian**.
   - 3 Appearance Modes: **Auto (System)**, **Light Mode**, and **Dark Mode** with full tonal surface elevation and contrast.
@@ -40,9 +41,19 @@ Run the debug build and unit tests from the project root.
 
 On macOS or Linux, use `./gradlew` with the same tasks. The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
 
+### Release artifacts
+
+On the release revision, run the unit tests and build the release APK and Android App Bundle.
+
+```powershell
+.\gradlew.bat :app:testDebugUnitTest :app:assembleRelease :app:bundleRelease
+```
+
+Gradle writes the APK under `app/build/outputs/apk/release/` and the bundle under `app/build/outputs/bundle/release/`. Sign the artifacts with the appropriate release or upload key before distributing them.
+
 ## Release History
 
 | Version | Highlights | Android build |
 | --- | --- | --- |
-| `1.0.1-dev.<commit>` | Expense date editing, category editing and archiving, and combined transaction search and filters. Fixes category overwrites, punctuation in category names, invalid amounts, and duplicate saves. Room schema 3 migrates existing categories. [Persistence fixes](https://github.com/rsp777/ExpenseTracker/issues/9) | Version code 2, target SDK 37 |
+| `1.0.1` | Monthly and category budgets with local alerts, expense date editing, category lifecycle management, and combined search and filters. The dashboard has a single transaction count, and the version appears in Appearance. Room migrates existing data to schema 4 for budgets. Includes fixes for category persistence and expense validation. [Budget limits](https://github.com/rsp777/ExpenseTracker/issues/3), [UI cleanup](https://github.com/rsp777/ExpenseTracker/issues/14), [Persistence fixes](https://github.com/rsp777/ExpenseTracker/issues/9) | Version code 2, target SDK 37 |
 | [`v1.0.0`](https://github.com/rsp777/ExpenseTracker/releases/tag/v1.0.0) | Initial release with multi-currency display, custom category creation, offline Room storage, and Material 3 themes. | Version code 1, target SDK 37 |

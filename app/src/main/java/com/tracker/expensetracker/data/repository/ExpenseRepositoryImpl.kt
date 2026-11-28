@@ -19,7 +19,8 @@ import java.time.LocalDate
 class ExpenseRepositoryImpl(
     private val expenseDao: ExpenseDao,
     private val categoryDao: CategoryDao,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val onExpensesChanged: () -> Unit = {}
 ) : ExpenseRepository {
 
     override fun getAllExpenses(): Flow<List<Expense>> = observeExpenses(expenseDao.getAllExpenses())
@@ -48,19 +49,24 @@ class ExpenseRepositoryImpl(
     }
 
     override suspend fun insertExpense(expense: Expense): Long = withContext(ioDispatcher) {
-        expenseDao.insertExpense(ExpenseEntity.fromDomainModel(expense))
+        val id = expenseDao.insertExpense(ExpenseEntity.fromDomainModel(expense))
+        onExpensesChanged()
+        id
     }
 
     override suspend fun updateExpense(expense: Expense) = withContext(ioDispatcher) {
         expenseDao.updateExpense(ExpenseEntity.fromDomainModel(expense))
+        onExpensesChanged()
     }
 
     override suspend fun deleteExpense(expense: Expense) = withContext(ioDispatcher) {
         expenseDao.deleteExpense(ExpenseEntity.fromDomainModel(expense))
+        onExpensesChanged()
     }
 
     override suspend fun deleteExpenseById(id: Long) = withContext(ioDispatcher) {
         expenseDao.deleteExpenseById(id)
+        onExpensesChanged()
     }
 
     override fun getAllCategories(): Flow<List<ExpenseCategory>> {
