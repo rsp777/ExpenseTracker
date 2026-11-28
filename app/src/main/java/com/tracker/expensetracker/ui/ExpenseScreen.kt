@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -33,18 +35,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tracker.expensetracker.R
 import com.tracker.expensetracker.ui.components.*
 
+private enum class ExpenseDestination { HOME, BUDGETS, RECURRING }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExpenseScreen(
+internal fun ExpenseScreen(
     viewModel: ExpenseViewModel,
     budgetViewModel: BudgetViewModel,
+    recurringViewModel: RecurringExpensesViewModel,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val budgetState by budgetViewModel.state.collectAsStateWithLifecycle()
-    var budgetsVisible by rememberSaveable { mutableStateOf(false) }
+    var destination by rememberSaveable { mutableStateOf(ExpenseDestination.HOME) }
     val dashboardScroll = rememberLazyListState()
-    BackHandler(enabled = budgetsVisible) { budgetsVisible = false }
+    BackHandler(enabled = destination != ExpenseDestination.HOME) { destination = ExpenseDestination.HOME }
     val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -65,7 +70,11 @@ fun ExpenseScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (budgetsVisible) "Budgets" else "Expense Tracker",
+                        when (destination) {
+                            ExpenseDestination.HOME -> "Expense Tracker"
+                            ExpenseDestination.BUDGETS -> "Budgets"
+                            ExpenseDestination.RECURRING -> stringResource(R.string.recurring_screen_title)
+                        },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -99,24 +108,33 @@ fun ExpenseScreen(
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
-                    selected = !budgetsVisible,
-                    onClick = { budgetsVisible = false },
+                    selected = destination == ExpenseDestination.HOME,
+                    onClick = { destination = ExpenseDestination.HOME },
                     icon = { Icon(Icons.Default.Home, contentDescription = null) },
                     label = { Text("Home") }
                 )
                 NavigationBarItem(
-                    selected = budgetsVisible,
+                    selected = destination == ExpenseDestination.BUDGETS,
                     onClick = {
                         focusManager.clearFocus()
-                        budgetsVisible = true
+                        destination = ExpenseDestination.BUDGETS
                     },
                     icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
                     label = { Text("Budgets") }
                 )
+                NavigationBarItem(
+                    selected = destination == ExpenseDestination.RECURRING,
+                    onClick = {
+                        focusManager.clearFocus()
+                        destination = ExpenseDestination.RECURRING
+                    },
+                    icon = { Icon(Icons.Default.Repeat, contentDescription = null) },
+                    label = { Text(stringResource(R.string.recurring_navigation)) },
+                )
             }
         },
         floatingActionButton = {
-            if (!budgetsVisible) {
+            if (destination == ExpenseDestination.HOME) {
                 ExtendedFloatingActionButton(
                     onClick = viewModel::onOpenAddExpense,
                     modifier = Modifier.semantics { contentDescription = newExpenseLabel },
@@ -141,12 +159,17 @@ fun ExpenseScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        if (budgetsVisible) {
+        if (destination == ExpenseDestination.BUDGETS) {
             BudgetScreen(
                 state = budgetState,
                 onSave = budgetViewModel::saveLimit,
                 onRemove = budgetViewModel::removeLimit,
                 modifier = Modifier.fillMaxSize().padding(innerPadding)
+            )
+        } else if (destination == ExpenseDestination.RECURRING) {
+            RecurringExpensesScreen(
+                viewModel = recurringViewModel,
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
             )
         } else {
             LazyColumn(

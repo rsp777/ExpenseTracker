@@ -1,5 +1,38 @@
 <resources>
     <string name="app_name">Expense Tracker</string>
+    <string name="recurring_navigation">Recurring</string>
+    <string name="recurring_screen_title">Recurring expenses</string>
+    <string name="recurring_empty">No recurring expenses scheduled.</string>
+    <string name="recurring_add">Add recurring expense</string>
+    <string name="recurring_add_action">Add schedule</string>
+    <string name="recurring_edit">Edit</string>
+    <string name="recurring_edit_title">Edit recurring expense</string>
+    <string name="recurring_save_changes">Save changes</string>
+    <string name="recurring_pause">Pause</string>
+    <string name="recurring_resume">Resume</string>
+    <string name="recurring_paused">Paused</string>
+    <string name="recurring_cancel_schedule">Cancel schedule</string>
+    <string name="recurring_cancel_title">Cancel recurring expense?</string>
+    <string name="recurring_cancel_detail">Cancel future entries for %1$s.</string>
+    <string name="recurring_keep_schedule">Keep schedule</string>
+    <string name="recurring_start_date">Start date</string>
+    <string name="recurring_frequency">Frequency</string>
+    <string name="recurring_daily">Daily</string>
+    <string name="recurring_weekly">Weekly</string>
+    <string name="recurring_monthly">Monthly</string>
+    <string name="recurring_yearly">Yearly</string>
+    <string name="recurring_category_and_cadence">%1$s · %2$s</string>
+    <string name="recurring_next_date">Next entry on %1$s</string>
+    <string name="recurring_save_error">Couldn’t update the schedule. Try again.</string>
+    <string name="recurring_notifications_settings">Recurring notification settings</string>
+    <string name="recurring_notifications_title">Recurring expenses</string>
+    <string name="recurring_notifications_help">Allow notifications to know when a scheduled expense is added.</string>
+    <string name="recurring_posted_title">Recurring expenses posted</string>
+    <plurals name="recurring_posted">
+        <item quantity="one">%d scheduled expense was added.</item>
+        <item quantity="other">%d scheduled expenses were added.</item>
+    </plurals>
+
     <plurals name="transaction_entries">
         <item quantity="one">%d entry</item>
         <item quantity="other">%d entries</item>
