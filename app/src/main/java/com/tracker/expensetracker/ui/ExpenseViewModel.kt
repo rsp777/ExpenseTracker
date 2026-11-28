@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -49,11 +50,12 @@ class ExpenseViewModel(
     }
 ) : ViewModel() {
 
-    private val _filter = MutableStateFlow(ExpenseFilter.ALL)
-    private val _selectedCategory = MutableStateFlow<ExpenseCategory?>(null)
+    private val _transactionFilters = MutableStateFlow(TransactionFilters())
     private val _sheetState = MutableStateFlow<Pair<Boolean, Expense?>>(Pair(false, null))
+    private var isSavingExpense = false
     private val _isCurrencyDialogVisible = MutableStateFlow(false)
-    private val _isAddCategoryDialogVisible = MutableStateFlow(false)
+    private val _categoryEditor = MutableStateFlow<CategoryEditorState?>(null)
+    private val _isCategoryManagerVisible = MutableStateFlow(false)
     private val _isThemeDialogVisible = MutableStateFlow(false)
     private val _userMessage = MutableStateFlow<String?>(null)
 
@@ -72,24 +74,19 @@ class ExpenseViewModel(
         Pair(theme, mode)
     }
 
-    private val filterFlow = combine(
-        _filter,
-        _selectedCategory
-    ) { filter, category ->
-        Pair(filter, category)
-    }
-
     private val dialogsFlow = combine(
         _sheetState,
         _isCurrencyDialogVisible,
-        _isAddCategoryDialogVisible,
+        _categoryEditor,
+        _isCategoryManagerVisible,
         _isThemeDialogVisible
-    ) { sheetState, currencyVisible, addCatVisible, themeVisible ->
+    ) { sheetState, currencyVisible, categoryEditor, categoryManagerVisible, themeVisible ->
         DialogsState(
             isAddEditSheetOpen = sheetState.first,
             editingExpense = sheetState.second,
             isCurrencyDialogVisible = currencyVisible,
-            isAddCategoryDialogVisible = addCatVisible,
+            categoryEditor = categoryEditor,
+            isCategoryManagerVisible = categoryManagerVisible,
             isThemeDialogVisible = themeVisible
         )
     }
@@ -97,27 +94,28 @@ class ExpenseViewModel(
     val uiState: StateFlow<ExpenseUiState> = combine(
         dataFlow,
         themeFlow,
-        filterFlow,
+        _transactionFilters,
         dialogsFlow,
         _userMessage
     ) { data, themePair, filters, dialogs, message ->
         val (allExpenses, categories, currency) = data
         val (theme, mode) = themePair
-        val (filter, category) = filters
-        val filteredExpenses = applyFilter(allExpenses, filter, category)
+        val filteredExpenses = applyFilters(allExpenses, filters)
         val summary = calculateSummary(filteredExpenses)
         ExpenseUiState(
             expenses = filteredExpenses,
             summary = summary,
-            filter = filter,
-            selectedCategory = category,
+            filter = filters.dateFilter,
+            selectedCategory = filters.category,
+            searchQuery = filters.query,
             categories = categories,
             currency = currency,
             theme = theme,
             themeMode = mode,
             isAddEditSheetOpen = dialogs.isAddEditSheetOpen,
             isCurrencyDialogVisible = dialogs.isCurrencyDialogVisible,
-            isAddCategoryDialogVisible = dialogs.isAddCategoryDialogVisible,
+            categoryEditor = dialogs.categoryEditor,
+            isCategoryManagerVisible = dialogs.isCategoryManagerVisible,
             isThemeDialogVisible = dialogs.isThemeDialogVisible,
             editingExpense = dialogs.editingExpense,
             userMessage = message
@@ -128,9 +126,23 @@ class ExpenseViewModel(
         initialValue = ExpenseUiState()
     )
 
-    fun onFilterSelected(filter: ExpenseFilter, category: ExpenseCategory? = null) {
-        _filter.value = filter
-        _selectedCategory.value = category
+    fun onSearchQueryChanged(query: String) {
+        _transactionFilters.update { it.copy(query = query) }
+    }
+
+    fun onDateFilterSelected(filter: ExpenseFilter) {
+        _transactionFilters.update { it.copy(dateFilter = filter) }
+    }
+
+    fun onCategoryFilterSelected(category: ExpenseCategory) {
+        _transactionFilters.update { current ->
+            val alreadySelected = current.category?.hasSameId(category) == true
+            current.copy(category = if (alreadySelected) null else category)
+        }
+    }
+
+    fun onClearFilters() {
+        _transactionFilters.value = TransactionFilters()
     }
 
     fun onOpenAddExpense() {
@@ -183,37 +195,82 @@ class ExpenseViewModel(
         }
     }
 
+    fun onOpenCategoryManager() {
+        _isCategoryManagerVisible.value = true
+    }
+
+    fun onDismissCategoryManager() {
+        _isCategoryManagerVisible.value = false
+    }
+
     fun onOpenAddCategory() {
-        _isAddCategoryDialogVisible.value = true
+        _categoryEditor.value = CategoryEditorState()
     }
 
-    fun onDismissAddCategory() {
-        _isAddCategoryDialogVisible.value = false
+    fun onOpenEditCategory(category: ExpenseCategory) {
+        if (!category.isBuiltIn) _categoryEditor.value = CategoryEditorState(category)
     }
 
-    fun onAddCategory(name: String, colorHex: Long, iconName: String) {
+    fun onDismissCategoryEditor() {
+        if (_categoryEditor.value?.isSaving != true) _categoryEditor.value = null
+    }
+
+    fun onCategoryNameChanged() {
+        _categoryEditor.update { it?.copy(error = null) }
+    }
+
+    fun onSaveCategory(name: String, colorHex: Long, iconName: String) {
+        val editor = _categoryEditor.value ?: return
+        if (editor.isSaving) return
         val trimmedName = name.trim()
-        if (trimmedName.isBlank()) {
-            _userMessage.value = "Category name cannot be empty"
+        val existing = editor.category
+        val duplicate = uiState.value.categories.any {
+            it.displayName.equals(trimmedName, ignoreCase = true) && existing?.hasSameId(it) != true
+        }
+        val error = when {
+            trimmedName.isBlank() -> "Please enter a category name"
+            duplicate -> "A category with this name already exists"
+            else -> null
+        }
+        if (error != null) {
+            _categoryEditor.value = editor.copy(error = error)
             return
         }
+
+        val category = ExpenseCategory(
+            id = existing?.id ?: ExpenseCategory.customIdForName(trimmedName),
+            displayName = trimmedName,
+            colorHex = colorHex,
+            iconName = iconName,
+            isArchived = existing?.isArchived ?: false,
+        )
+        _categoryEditor.value = editor.copy(error = null, isSaving = true)
         viewModelScope.launch {
-            val slug = trimmedName.uppercase().replace(" ", "_")
-            val newCategory = ExpenseCategory(
-                id = slug,
-                displayName = trimmedName,
-                colorHex = colorHex,
-                iconName = iconName,
-                isDefault = false
-            )
-            repository.insertCategory(newCategory)
-            _isAddCategoryDialogVisible.value = false
-            _userMessage.value = "Category '$trimmedName' created successfully"
+            val saved = if (existing == null) repository.insertCategory(category) else repository.updateCategory(category)
+            if (saved) {
+                _categoryEditor.value = null
+                _userMessage.value = if (existing == null) "Category '$trimmedName' created successfully"
+                    else "Category '$trimmedName' updated"
+            } else {
+                val message = if (existing == null) "A category with this name already exists"
+                    else "Couldn't update this category"
+                _categoryEditor.value = editor.copy(error = message, isSaving = false)
+            }
+        }
+    }
+
+    fun onSetCategoryArchived(category: ExpenseCategory, archived: Boolean) {
+        if (category.isBuiltIn) return
+        viewModelScope.launch {
+            if (repository.setCategoryArchived(category, archived)) {
+                _userMessage.value = if (archived) "Category '${category.displayName}' archived"
+                    else "Category '${category.displayName}' restored"
+            }
         }
     }
 
     fun onDeleteCategory(category: ExpenseCategory) {
-        if (category.isDefault) {
+        if (category.isBuiltIn) {
             _userMessage.value = "Default categories cannot be deleted"
             return
         }
@@ -230,30 +287,39 @@ class ExpenseViewModel(
         date: LocalDate,
         notes: String
     ) {
+        val sheet = _sheetState.value
+        val (isOpen, editingExpense) = sheet
+        if (!isOpen || isSavingExpense || title.isBlank() || !amount.isFinite() || amount <= 0.0) {
+            return
+        }
+
+        if (category.isArchived && editingExpense?.category?.hasSameId(category) != true) {
+            _userMessage.value = "Choose an active category"
+            return
+        }
+
+        isSavingExpense = true
         viewModelScope.launch {
-            val currentEditing = _sheetState.value.second
-            if (currentEditing == null) {
-                val newExpense = Expense(
+            try {
+                val expense = Expense(
+                    id = editingExpense?.id ?: 0,
                     title = title.trim(),
                     amount = amount,
                     category = category,
                     date = date,
                     notes = notes.trim()
                 )
-                repository.insertExpense(newExpense)
-                _userMessage.value = "Expense added successfully"
-            } else {
-                val updated = currentEditing.copy(
-                    title = title.trim(),
-                    amount = amount,
-                    category = category,
-                    date = date,
-                    notes = notes.trim()
-                )
-                repository.updateExpense(updated)
-                _userMessage.value = "Expense updated successfully"
+                if (editingExpense == null) {
+                    repository.insertExpense(expense)
+                    _userMessage.value = "Expense added successfully"
+                } else {
+                    repository.updateExpense(expense)
+                    _userMessage.value = "Expense updated successfully"
+                }
+                if (_sheetState.value === sheet) onDismissSheet()
+            } finally {
+                isSavingExpense = false
             }
-            onDismissSheet()
         }
     }
 
@@ -268,36 +334,34 @@ class ExpenseViewModel(
         _userMessage.value = null
     }
 
-    private fun applyFilter(
-        expenses: List<Expense>,
-        filter: ExpenseFilter,
-        category: ExpenseCategory?
-    ): List<Expense> {
+    private fun applyFilters(expenses: List<Expense>, filters: TransactionFilters): List<Expense> {
         val today = LocalDate.now()
-        return when (filter) {
-            ExpenseFilter.ALL -> expenses
-            ExpenseFilter.TODAY -> expenses.filter { it.date == today }
+        val dateRange = when (filters.dateFilter) {
+            ExpenseFilter.ALL -> null
+            ExpenseFilter.TODAY -> today..today
             ExpenseFilter.THIS_WEEK -> {
-                val startOfWeek = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                val endOfWeek = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
-                expenses.filter { !it.date.isBefore(startOfWeek) && !it.date.isAfter(endOfWeek) }
+                val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                monday..monday.plusDays(6)
             }
-            ExpenseFilter.THIS_MONTH -> {
-                val startOfMonth = today.withDayOfMonth(1)
-                val endOfMonth = today.with(TemporalAdjusters.lastDayOfMonth())
-                expenses.filter { !it.date.isBefore(startOfMonth) && !it.date.isAfter(endOfMonth) }
-            }
-            ExpenseFilter.BY_CATEGORY -> {
-                if (category == null) expenses else expenses.filter { it.category == category }
-            }
+            ExpenseFilter.THIS_MONTH -> today.withDayOfMonth(1)..today.with(TemporalAdjusters.lastDayOfMonth())
+        }
+        val category = filters.category
+        val query = filters.query.trim()
+        if (dateRange == null && category == null && query.isEmpty()) return expenses
+
+        return expenses.filter { expense ->
+            (dateRange == null || expense.date in dateRange) &&
+                (category == null || expense.category.hasSameId(category)) &&
+                (query.isEmpty() || expense.title.contains(query, ignoreCase = true) ||
+                    expense.notes.contains(query, ignoreCase = true))
         }
     }
 
     private fun calculateSummary(expenses: List<Expense>): ExpenseSummary {
         if (expenses.isEmpty()) return ExpenseSummary()
         val total = expenses.sumOf { it.amount }
-        val categoryTotals = expenses.groupBy { it.category }
-            .mapValues { (_, list) -> list.sumOf { it.amount } }
+        val categoryTotals = expenses.groupBy { it.category.id.uppercase() }
+            .values.associate { entries -> entries.first().category to entries.sumOf { it.amount } }
         val topCategory = categoryTotals.maxByOrNull { it.value }?.key
 
         return ExpenseSummary(
@@ -308,11 +372,18 @@ class ExpenseViewModel(
         )
     }
 
+    private data class TransactionFilters(
+        val dateFilter: ExpenseFilter = ExpenseFilter.ALL,
+        val category: ExpenseCategory? = null,
+        val query: String = "",
+    )
+
     private data class DialogsState(
         val isAddEditSheetOpen: Boolean = false,
         val editingExpense: Expense? = null,
         val isCurrencyDialogVisible: Boolean = false,
-        val isAddCategoryDialogVisible: Boolean = false,
+        val categoryEditor: CategoryEditorState? = null,
+        val isCategoryManagerVisible: Boolean = false,
         val isThemeDialogVisible: Boolean = false
     )
 

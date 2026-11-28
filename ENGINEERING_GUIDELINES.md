@@ -42,11 +42,13 @@ This document establishes the architectural principles, coding conventions, Git 
   - `chore(release): bump version to X.Y.Z (versionCode N)` (Release milestone)
   - `ci: <description>` (GitHub Actions workflow adjustments)
   - `docs: <description>` (Documentation updates)
-- **Merge Protocol**:
+- **Merge & Push Protocol (Approval Gateway Rule)**:
   1. Commit and push changes to `dev`.
   2. Verify build and tests pass: `./gradlew testDebugUnitTest`.
-  3. Merge `dev` into `main` using non-fast-forward merge (`git merge dev --no-edit`).
-  4. Push both branches to `origin`.
+  3. **STRICT APPROVAL REQUIREMENT**: Merging `dev` into `main` and pushing to `main` is **STRICTLY PROHIBITED** without explicit approval from the user.
+  4. Once explicit user approval is granted:
+     - Merge `dev` into `main` using non-fast-forward merge (`git merge dev --no-edit`).
+     - Push `main` to `origin/main`.
 
 ---
 
@@ -54,7 +56,10 @@ This document establishes the architectural principles, coding conventions, Git 
 - **Single Source of Truth**:
   - `app/build.gradle.kts` defines:
     - `versionCode`: Integer incrementing on every release build.
-    - `versionName`: Semantic version string (`MAJOR.MINOR.PATCH`).
+    - `baseVersionName`: Semantic release version string (`MAJOR.MINOR.PATCH`, e.g., `1.0.0`).
+    - `versionName`: Dynamically calculated:
+      - On `dev` branch or feature branches: `<baseVersionName>-dev.<commitHash>` (e.g. `1.0.0-dev.e0966e8`). Every push to `dev` maintains an accurate, traceable development version stamp visible throughout the app and build metadata.
+      - On `main` branch (production): pure `<baseVersionName>` (e.g. `1.0.0`).
 - **README & Changelog Protocol (Mandatory on Every Release)**:
   - Every release commit MUST update `README.md`:
     1. Update the top version shield badge: `[![Version](https://img.shields.io/badge/Version-vX.Y.Z-brightgreen.svg)]`.

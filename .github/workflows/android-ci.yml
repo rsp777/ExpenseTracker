@@ -64,7 +64,10 @@ jobs:
       - name: Extract Version from build.gradle.kts
         id: get_version
         run: |
-          VERSION=$(grep 'versionName = ' app/build.gradle.kts | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+          VERSION=$(grep 'val baseVersionName = ' app/build.gradle.kts | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$VERSION" ]; then
+            VERSION=$(grep 'versionName = ' app/build.gradle.kts | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+          fi
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Detected version: $VERSION"
 

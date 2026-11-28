@@ -16,6 +16,8 @@ interface ExpenseRepository {
     suspend fun deleteExpenseById(id: Long)
 
     fun getAllCategories(): Flow<List<ExpenseCategory>>
-    suspend fun insertCategory(category: ExpenseCategory)
+    suspend fun insertCategory(category: ExpenseCategory): Boolean
+    suspend fun updateCategory(category: ExpenseCategory): Boolean
+    suspend fun setCategoryArchived(category: ExpenseCategory, archived: Boolean): Boolean
     suspend fun deleteCategory(category: ExpenseCategory)
 }
